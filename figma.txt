@@ -1,0 +1,14 @@
+- login page
+https://www.figma.com/design/jWkhrqD09CPx2NdgsRfn5Z/J%C3%B3ia-Perfeita?node-id=50-488&t=aNQAWkZbt901M2p3-4
+
+- register page 
+https://www.figma.com/design/jWkhrqD09CPx2NdgsRfn5Z/J%C3%B3ia-Perfeita?node-id=191-649&t=yfgWaYn6Grm4ByqP-4
+
+- register detail 1
+https://www.figma.com/design/jWkhrqD09CPx2NdgsRfn5Z/J%C3%B3ia-Perfeita?node-id=191-723&t=yfgWaYn6Grm4ByqP-4
+
+- register detail 2
+https://www.figma.com/design/jWkhrqD09CPx2NdgsRfn5Z/J%C3%B3ia-Perfeita?node-id=220-450&t=yfgWaYn6Grm4ByqP-4
+
+- register detail 3
+https://www.figma.com/design/jWkhrqD09CPx2NdgsRfn5Z/J%C3%B3ia-Perfeita?node-id=220-601&t=yfgWaYn6Grm4ByqP-4
