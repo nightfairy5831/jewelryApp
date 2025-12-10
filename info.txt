@@ -1,0 +1,25 @@
+- ticket-19 : Simplify User Registration  :
+description: 
+Instead of requiring sellers or buyers to log in to view app content, we allow users to access the app without logging in, similar to apps like Shopee.
+Users can login by clicking the profile button in index page or at checkout during the payment process.
+
+- ticket-6 :Persistent Session (“Keep user logged in”) :
+description: Implement session persistence so that the user remains authenticated after closing the app, following security best practices.
+
+- ticket-5 : Refine the behavior of the filter button  : index pagge
+description: Remove the "back"/”filter” button from the index page. 
+project need to have subcategory for each category.
+one category have 3 sub category , and when click each category, search fields show the  4 button - one is back button and another are 3 subcategory.
+
+- ticket-7 : Replace forum with questions and answers. 
+Replace the current forum with a publicly visible questions and answers module within the product details. other words, remove forum button and then set one fields in product detail page.
+
+- ticket-8 : Remove product page sidebar.   : 
+in product detail page is shown, Completely eliminate the sidebar, keeping only the product details content.  
+
+- ticket-9 : Ensure continuous visibility of the “Add to cart” button   : product detail page
+Fix the button at the bottom of the screen (sticky), always visible during scrolling. Respect the white gradient background design at the bottom of the screen.
+
+- ticket-10 : Create navigation loop  : 
+Adjust the flow to allow easy return to the beginning of navigation.
+other words , when click the 'next product' button in index page, product shown . when the last product shown, if click the 'next product' button, show the product list again from first product.

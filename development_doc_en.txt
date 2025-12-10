@@ -1,0 +1,375 @@
+================================================================================
+                    FALA SHOP - DEVELOPMENT PROPOSAL
+           Jewelry E-Commerce App with Dynamic Gold Pricing
+================================================================================
+
+PROJECT SUMMARY
+---------------
+Mobile app (iOS + Android) for jewelry sales in Brazil with:
+- Super Admin control over sellers and products
+- Automatic gold price updates every 4 hours (in Brazilian Real - BRL)
+- Automated customer emails (Portuguese language support)
+- 3D product viewer
+- Complete e-commerce features
+- Brazilian payment methods (PIX, Credit Cards, Boleto)
+
+TOTAL COST: $2,700
+
+
+================================================================================
+YOUR 3 REQUIREMENTS - OUR SOLUTIONS
+================================================================================
+
+1. SELLER MANAGEMENT SYSTEM
+----------------------------
+
+Your Request:
+"Can we include an interface for sellers through special logins? Regular users
+cannot choose to be sellers. We must be able to select and allow seller
+registration ourselves."
+
+Our Solution:
+✓ Users can request seller access through the app
+✓ YOU (Super Admin) receive notification
+✓ YOU approve or reject each seller request
+✓ Only approved sellers can add products
+✓ Web dashboard to manage all sellers
+✓ You can deactivate sellers anytime
+
+Deliverable: Complete seller approval system with notifications
+
+
+2. AUTOMATED EMAILS
+-------------------
+
+Your Request:
+"The app should send pre-programmed messages when users register (welcome
+emails), make purchases (thank you and confirmation), when new items are added,
+and when sellers ship products."
+
+Our Solution:
+✓ Welcome Email - Sent when user registers
+✓ Purchase Confirmation - Sent after payment with order details
+✓ New Product Alert - Sent to all users when items added to catalog
+✓ Shipping Notification - Sent when seller ships with tracking number
+
+BONUS: You can edit all email templates through admin panel
+        Preview emails before they go live
+        Track email delivery
+
+Deliverable: 4 automated email types + admin editor
+
+
+3. DYNAMIC GOLD PRICING
+------------------------
+
+Your Request:
+"Products sold change prices dynamically along with fluctuations in the value
+of gold. I need an algorithm that frequently searches for gold prices on Google
+and increases or decreases the value of all products by percentages equivalent
+to the amount of gold in the piece."
+
+Our Solution:
+✓ System checks gold price every 4 hours automatically
+✓ Connects to gold price API (GoldAPI.io - $10-15/month)
+✓ Updates ALL product prices automatically
+✓ No manual work needed
+
+HOW IT WORKS:
+1. System fetches current gold price (R$ per gram)
+2. For each product, calculates new price using formula:
+
+   New Price = Base Price × (Current Gold Price ÷ Initial Gold Price)
+
+EXAMPLE:
+   Product: Gold Ring
+   Base Price: R$ 1,000
+   Gold Weight: 5 grams
+   Initial Gold Price: R$ 300/gram
+   Current Gold Price: R$ 330/gram (10% increase)
+
+   Calculation: R$ 1,000 × (330 ÷ 300) = R$ 1,100
+
+   Result: Price automatically updates to R$ 1,100
+
+SUPER ADMIN CONTROLS:
+✓ View current gold price
+✓ See price history chart
+✓ Manual override if API fails
+✓ Set update frequency
+✓ Set min/max price limits
+
+Deliverable: Fully automated gold pricing with manual controls
+
+
+================================================================================
+ADDITIONAL FEATURES INCLUDED
+================================================================================
+
+4. PRODUCT APPROVAL SYSTEM
+---------------------------
+✓ Sellers create products (hidden by default)
+✓ YOU review each product before it goes live
+✓ Approve or reject with feedback
+✓ Only approved products visible to buyers
+✓ Full quality control
+
+
+5. 3D PRODUCT VIEWER
+---------------------
+✓ Customers can view jewelry in 3D
+✓ Rotate 360 degrees
+✓ Zoom to see details
+✓ Supports GLB, OBJ, STL file formats
+✓ Fallback to 2D images if 3D unavailable
+✓ Sellers upload 3D models through dashboard
+
+
+6. COMPLETE E-COMMERCE
+-----------------------
+✓ Shopping cart
+✓ Wishlist
+✓ Stripe payments (PIX, Credit Cards, Boleto)
+✓ Order tracking
+✓ Purchase history
+✓ Seller dashboards
+✓ Analytics and reports
+
+
+================================================================================
+DEVELOPMENT PHASES & PRICING
+================================================================================
+
+PHASE 1: Foundation - $550
+--------------------------
+✓ Backend system setup (Laravel + Database)
+✓ User authentication (Email + Google Sign-In)
+✓ Super Admin, Seller, Buyer roles
+✓ Web admin panel
+✓ Seller approval system
+
+YOU CAN: Login to admin panel, approve sellers, manage users
+
+
+PHASE 2: Products & Gold Pricing - $700
+----------------------------------------
+✓ Product catalog (50+ products)
+✓ Gold price scraper (every 4 hours)
+✓ Automatic price calculator
+✓ Product approval workflow
+✓ 3D model upload support
+✓ Filter and search
+
+YOU CAN: Add products, approve products, monitor gold prices, upload 3D models
+
+
+PHASE 3: Email Automation - $400
+---------------------------------
+✓ Email service integration (SendGrid)
+✓ Welcome emails
+✓ Purchase confirmation emails
+✓ New product alert emails
+✓ Shipping notification emails
+✓ Email template editor
+
+YOU CAN: Customize emails, send test emails, view delivery reports
+
+
+PHASE 4: 3D Viewer & Media - $250
+----------------------------------
+✓ 3D product viewer (360° rotation)
+✓ GLB, OBJ, STL format support
+✓ Zoom functionality
+✓ 2D/3D toggle
+✓ Video playback
+
+YOU CAN: Upload 3D models, preview before approval
+
+
+PHASE 5: Shopping & Payments - $400
+------------------------------------
+✓ Shopping cart system
+✓ Wishlist feature
+✓ Stripe integration (PIX, Credit Cards)
+✓ Checkout process
+✓ Order management
+✓ Purchase history
+
+YOU CAN: Process payments, track orders, view revenue
+
+
+PHASE 6: Seller Features - $300
+--------------------------------
+✓ Seller dashboard
+✓ Product management for sellers
+✓ Order management for sellers
+✓ Sales analytics
+✓ Shipping status updates
+
+YOU CAN: Monitor seller activity, view seller performance
+
+
+PHASE 7: Testing & Optimization - $100
+---------------------------------------
+✓ Complete testing (iOS and Android)
+✓ Performance optimization
+✓ Bug fixes
+✓ Training and documentation
+
+YOU GET: Fully tested app ready for deployment, documentation, training
+
+
+================================================================================
+TOTAL INVESTMENT
+================================================================================
+
+Phase 1: Backend + Auth + Admin         $550
+Phase 2: Products + Gold Pricing        $700
+Phase 3: Email Automation               $400
+Phase 4: 3D Viewer                      $250
+Phase 5: Shopping + Payments            $400
+Phase 6: Seller Features                $300
+Phase 7: Testing + Optimization         $100
+-----------------------------------------------------------------
+TOTAL                                   $2,700
+
+
+PAYMENT OPTIONS : $2400
+---------------
+  20% upfront                    $480
+  20% after Phase 2              $480
+  20% after Phase 3              $480
+  20% after Phase 5              $480
+  20% final delivery             $480
+
+
+
+================================================================================
+MONTHLY COSTS AFTER LAUNCH
+================================================================================
+
+Server Hosting                   $20-50/month
+Gold Price API                   $10-15/month
+Email Service                    $0-15/month (free tier available)
+Stripe Transaction Fees          4.99% + R$0.40 per transaction
+File Storage (images/3D)         $5-20/month
+App Store (iOS)                  $99/year
+Google Play (Android)            $25 one-time
+------------------------------------------------
+TOTAL                           ~$50-100/month
+
+
+================================================================================
+WHAT WE NEED FROM YOU
+================================================================================
+
+CONTENT:
+□ 50+ jewelry product details (name, description, gold weight per piece)
+□ Product photos (minimum 3 per product, high quality)
+□ Product videos (optional)
+□ 3D models
+□ Logo and app icon
+□ Company branding colors
+
+LEGAL/BUSINESS:
+□ Terms and conditions text
+□ Privacy policy text
+□ Return/refund policy
+□ Email template copy (we design, you provide text)
+
+ACCOUNTS:
+□ Stripe merchant account setup
+□ Business verification documents
+□ Email sending domain (for professional emails)
+
+================================================================================
+TECHNOLOGY STACK
+================================================================================
+
+Mobile App:           React Native (iOS + Android from one codebase)
+Backend:              Laravel (PHP) - Industry standard
+Database:             MySQL
+Admin Panel:          Inertia.js (Modern web interface)
+3D Viewer:            Expo GL + Three.js
+Payments:             Stripe (PIX, Credit Cards, Boleto - Brazilian methods)
+Email:                SendGrid or Mailgun (Portuguese language)
+Gold Prices:          GoldAPI.io (BRL pricing) + backup web scraping
+Storage:              AWS S3 or Laravel storage
+Currency:             Brazilian Real (BRL - R$)
+Language:             Portuguese (PT-BR)
+
+
+================================================================================
+USER ROLES EXPLAINED
+================================================================================
+
+SUPER ADMIN (You):
+- Approve/reject seller requests
+- Approve/reject product listings
+- Manage all users
+- Configure gold pricing
+- Edit email templates
+- View all analytics
+- Full system control
+
+SELLER (Approved by you):
+- Create/edit their own products
+- Upload images, videos, 3D models
+- View their orders
+- Update shipping status
+- View their sales analytics
+- Cannot see other sellers' data
+
+BUYER (Regular users):
+- Browse products
+- View in 3D
+- Add to cart/wishlist
+- Make purchases
+- Track orders
+- View purchase history
+
+
+================================================================================
+WHY THIS SOLUTION WORKS
+================================================================================
+
+FOR YOU (Business Owner):
+✓ Complete control over who sells
+✓ Complete control over what products are listed
+✓ Never update prices manually - fully automated
+✓ Professional automated emails keep customers engaged
+✓ Quality assurance on everything
+✓ Scalable - grow to hundreds of sellers
+
+FOR SELLERS:
+✓ Easy product upload interface
+✓ Order management tools
+✓ Sales analytics
+✓ Fair pricing based on gold market
+
+FOR CUSTOMERS:
+✓ See jewelry in 3D before buying
+✓ Prices always reflect current gold value
+✓ Professional communication
+✓ Secure payments
+✓ Order tracking
+
+
+================================================================================
+FREQUENTLY ASKED QUESTIONS
+================================================================================
+
+Q: Can we change email templates after launch?
+A: Yes! Super admin panel includes full email editor.
+
+Q: What if gold price API stops working?
+A: Automatic fallback to web scraping + you can manually enter price.
+
+Q: Can we add features later?
+A: Yes! System built to be expandable.
+
+Q: Can sellers see other sellers' products?
+A: No, sellers only see their own products and orders.
+
+Q: Can we remove products after approval?
+A: Yes, you can deactivate or delete any product anytime.
