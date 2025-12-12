@@ -3,23 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { router } from 'expo-router';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  category?: string;
-  subcategory?: string;
-  material?: string;
-  gold_karat?: string;
-  gold_weight_grams?: number;
-  properties?: Record<string, any>;
-  shipping?: { free: boolean; days: number };
-  seller?: { id: number; name: string; rating?: number };
-  rating?: number;
-  reviewCount?: number;
-}
+import type { Product } from '../../data/products';
 
 interface ProductDetailContentProps {
   product: Product;
@@ -181,6 +165,7 @@ const styles = StyleSheet.create({
   },
   contentCompact: {
     padding: 16,
+    paddingBottom: 16,
     backgroundColor: '#fafafa',
   },
   sellerSection: {

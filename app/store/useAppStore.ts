@@ -257,35 +257,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const products = await productApi.getAll();
 
-      // Map backend category names (Portuguese) to frontend filter IDs (English)
-      const categoryMap: Record<string, string> = {
-        'Masculino': 'male',
-        'Feminino': 'female',
-        'Formatura': 'graduation',
-        'Casamento': 'wedding',
-      };
-
-      // Map backend subcategory names (Portuguese) to frontend filter IDs (English)
-      const subcategoryMap: Record<string, string> = {
-        'Anéis': 'rings',
-        'Colares': 'necklaces',
-        'Pulseiras': 'bracelets',
-        'Medalhas': 'medals',
-        'Broches': 'pins',
-        'Alianças': 'rings',
-        'Conjuntos': 'sets',
-        'Tiaras': 'tiaras',
-      };
-
       const productsWithMedia = products.map((p) => {
-        // Map backend categories to frontend filter IDs
-        const mappedCategory = categoryMap[p.category] || p.category?.toLowerCase() || 'male';
-        const mappedSubcategory = subcategoryMap[p.subcategory] || p.subcategory?.toLowerCase() || 'rings';
-
         return {
           ...p,
-          category: mappedCategory,
-          subcategory: mappedSubcategory,
           images: p.images?.slice(0, 3) || [],
           videos: p.videos?.length > 0 ? p.videos : [],
         };
@@ -355,9 +329,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newSelectedFilters = [...state.selectedFilters, filterId];
         const newFilterSet = filterTree[filterId];
 
-        // Filter products by parent category
+        // Filter products by parent category (exact match)
         const filtered = state.products.filter((product) => {
-          return product.category?.toLowerCase() === filterId.toLowerCase();
+          return product.category === filterId;
         });
 
         return {
@@ -371,8 +345,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         const parentCategory = state.selectedFilters[state.selectedFilters.length - 1];
 
         const filtered = state.products.filter((product) => {
-          const categoryMatch = product.category?.toLowerCase() === parentCategory?.toLowerCase();
-          const subcategoryMatch = product.subcategory?.toLowerCase() === filterId.toLowerCase();
+          const categoryMatch = product.category === parentCategory;
+          const subcategoryMatch = product.subcategory === filterId;
           return categoryMatch && subcategoryMatch;
         });
 

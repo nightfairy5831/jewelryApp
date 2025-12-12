@@ -273,9 +273,9 @@ function transformProduct(apiProduct: any): Product {
       free: true, // Default for now
       days: 5,
     },
-    // 3D Model support (Phase 4)
-    model3dUrl: apiProduct.model_3d_url,
-    model3dType: apiProduct.model_3d_type,
+    // 3D Model support (Phase 4) - Temporary fallback for all products
+    model_3d_url: apiProduct.model_3d_url || 'https://jewelry-backend-main-wj7bry.laravel.cloud/jewelry.glb',
+    model_3d_type: apiProduct.model_3d_type || 'glb',
     videos: videos,
     // Seller info
     seller: apiProduct.seller ? {

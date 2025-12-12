@@ -15,14 +15,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAppStore } from '../../store/useAppStore';
 import { productApi, sellerApi } from '../../services/api';
 
-// Categories and Subcategories based on Buyer Dashboard (first 4 items only)
-const CATEGORIES = ['Masculino', 'Feminino', 'Formatura', 'Casamento'];
+// Categories and Subcategories
+const CATEGORIES = ['Male', 'Female', 'Wedding Rings', 'Other'];
 
 const SUBCATEGORIES: { [key: string]: string[] } = {
-  'Masculino': ['Anéis', 'Colares', 'Pulseiras'],
-  'Feminino': ['Anéis', 'Colares', 'Pulseiras'],
-  'Formatura': ['Anéis', 'Medalhas', 'Broches'],
-  'Casamento': ['Alianças', 'Conjuntos', 'Tiaras'],
+  'Male': ['Chains', 'Rings', 'Earrings and Pendants'],
+  'Female': ['Chains', 'Rings', 'Earrings and Pendants'],
+  'Wedding Rings': ['Wedding Anniversary', 'Engagement', 'Marriage'],
+  'Other': ['Perfumes', 'Watches', 'Other'],
 };
 
 export default function ProductFormScreen() {
@@ -35,8 +35,8 @@ export default function ProductFormScreen() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'Masculino',
-    subcategory: 'Anéis',
+    category: 'Male',
+    subcategory: 'Chains',
     base_price: '',
     gold_weight_grams: '',
     gold_karat: '18k',
@@ -68,8 +68,8 @@ export default function ProductFormScreen() {
         setFormData({
           name: product.name || '',
           description: product.description || '',
-          category: product.category || 'Masculino',
-          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Masculino'][0],
+          category: product.category || 'Male',
+          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0],
           base_price: product.base_price?.toString() || '',
           gold_weight_grams: product.gold_weight_grams?.toString() || '',
           gold_karat: product.gold_karat || '18k',

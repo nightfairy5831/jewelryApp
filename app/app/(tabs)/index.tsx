@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
+import Model3DViewer from '../../components/product/Model3DViewer';
 
 const GOLDEN_RATIO = 0.618;
 
@@ -41,12 +42,18 @@ export default function CatalogScreen() {
 
   const currentProduct = filteredProducts[currentProductIndex];
 
-  // Build media items array (video and images only - 3D removed)
+  // Build media items array (3D model, video, and images)
   const mediaItems = useMemo(() => {
     if (!currentProduct) return [];
     const items = [];
 
-    // 3D model feature removed
+    // Add 3D model if available
+    if (currentProduct.model_3d_url) {
+      console.log('Adding 3D model:', currentProduct.model_3d_url);
+      items.push({ type: '3d', url: currentProduct.model_3d_url });
+    } else {
+      console.log('No 3D model URL found for product:', currentProduct.name);
+    }
 
     // Add video (max 1)
     if (currentProduct.videos && currentProduct.videos[0]) {
@@ -60,6 +67,7 @@ export default function CatalogScreen() {
       });
     }
 
+    console.log('Total media items:', items.length, items.map(i => i.type));
     return items;
   }, [currentProduct]);
 
@@ -172,6 +180,9 @@ export default function CatalogScreen() {
               <View style={styles.mediaViewerContainer}>
                 {/* Top: Main viewer (70%) */}
                 <View style={styles.mainViewer}>
+                  {mediaItems[selectedMediaIndex]?.type === '3d' && mediaItems[selectedMediaIndex]?.url && (
+                    <Model3DViewer modelUrl={mediaItems[selectedMediaIndex].url} />
+                  )}
                   {mediaItems[selectedMediaIndex]?.type === 'image' && mediaItems[selectedMediaIndex]?.url && (
                     <Image
                       source={{ uri: mediaItems[selectedMediaIndex].url }}
@@ -199,6 +210,11 @@ export default function CatalogScreen() {
                         ]}
                         onPress={() => setSelectedMediaIndex(idx)}
                       >
+                        {item.type === '3d' && (
+                          <View style={styles.thumbnailIcon}>
+                            <Ionicons name="cube" size={24} color="#fff" />
+                          </View>
+                        )}
                         {item.type === 'image' && item.url && (
                           <Image source={{ uri: item.url }} style={styles.thumbnailImage} />
                         )}
