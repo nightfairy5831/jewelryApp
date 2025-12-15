@@ -12,7 +12,7 @@ export const filterTree: Record<string, FilterConfig[]> = {
     {
       id: 'Male',
       name: 'Masculino',
-      icon: require('../assets/man.png'),
+      icon: require('../assets/filter/male.png'),
       iconType: 'image',
       type: 'category',
       subFilters: []
@@ -20,7 +20,7 @@ export const filterTree: Record<string, FilterConfig[]> = {
     {
       id: 'Female',
       name: 'Feminino',
-      icon: require('../assets/woman.png'),
+      icon: require('../assets/filter/female.png'),
       iconType: 'image',
       type: 'category',
       subFilters: []
@@ -28,7 +28,7 @@ export const filterTree: Record<string, FilterConfig[]> = {
     {
       id: 'Wedding Rings',
       name: 'Alianças de Casamento',
-      icon: require('../assets/marriage.png'),
+      icon: require('../assets/filter/marriage.png'),
       iconType: 'image',
       type: 'category',
       subFilters: []
@@ -36,7 +36,7 @@ export const filterTree: Record<string, FilterConfig[]> = {
     {
       id: 'Other',
       name: 'Outros',
-      icon: require('../assets/fomat.png'),
+      icon: require('../assets/filter/other.png'),
       iconType: 'image',
       type: 'category',
       subFilters: []
@@ -55,24 +55,24 @@ export const filterTree: Record<string, FilterConfig[]> = {
     }
   ],
   Male: [
-    { id: 'Chains', name: 'Correntes', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Rings', name: 'Anéis', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' }
+    { id: 'Chains', name: 'Correntes', icon: require('../assets/filter/chain.png'), iconType: 'image', type: 'category' },
+    { id: 'Rings', name: 'Anéis', icon: require('../assets/filter/marriage.png'), iconType: 'image', type: 'category' },
+    { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/filter/earring.png'), iconType: 'image', type: 'category' }
   ],
   Female: [
-    { id: 'Chains', name: 'Correntes', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Rings', name: 'Anéis', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' }
+    { id: 'Chains', name: 'Correntes', icon: require('../assets/filter/chain.png'), iconType: 'image', type: 'category' },
+    { id: 'Rings', name: 'Anéis', icon: require('../assets/filter/marriage.png'), iconType: 'image', type: 'category' },
+    { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/filter/earring.png'), iconType: 'image', type: 'category' }
   ],
   'Wedding Rings': [
-    { id: 'Wedding Anniversary', name: 'Aniversário de Casamento', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Engagement', name: 'Noivado', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Marriage', name: 'Casamento', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' }
+    { id: 'Wedding Anniversary', name: 'Aniversário de Casamento', icon: require('../assets/filter/anniversary.png'), iconType: 'image', type: 'category' },
+    { id: 'Engagement', name: 'Noivado', icon: require('../assets/filter/engagment.png'), iconType: 'image', type: 'category' },
+    { id: 'Marriage', name: 'Casamento', icon: require('../assets/filter/marriage.png'), iconType: 'image', type: 'category' }
   ],
   Other: [
-    { id: 'Perfumes', name: 'Perfumes', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Watches', name: 'Relógios', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' },
-    { id: 'Other', name: 'Outros', icon: require('../assets/icon.png'), iconType: 'image', type: 'category' }
+    { id: 'Perfumes', name: 'Perfumes', icon: require('../assets/filter/perfume.png'), iconType: 'image', type: 'category' },
+    { id: 'Watches', name: 'Relógios', icon: require('../assets/filter/watch.png'), iconType: 'image', type: 'category' },
+    { id: 'Other', name: 'Outros', icon: require('../assets/filter/other.png'), iconType: 'image', type: 'category' }
   ]
 };
 

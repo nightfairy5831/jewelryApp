@@ -272,6 +272,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         error: null
       });
     } catch (error) {
+      console.error('Failed to load products:', error);
       set({
         isLoading: false,
         error: 'Failed to load products. Please check your connection.'
@@ -337,7 +338,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return {
           selectedFilters: newSelectedFilters,
           currentFilterSet: newFilterSet,
-          filteredProducts: filtered.length > 0 ? filtered : state.products,
+          filteredProducts: filtered,
           currentProductIndex: 0,
         };
       } else {
@@ -351,7 +352,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         });
 
         return {
-          filteredProducts: filtered.length > 0 ? filtered : state.products,
+          filteredProducts: filtered,
           currentProductIndex: 0,
         };
       }

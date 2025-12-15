@@ -18,16 +18,12 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
     setLoadingRef.current = setLoading;
   }, [setLoading]);
 
-  console.log('Model3DViewer loading:', modelUrl, 'Platform:', Platform.OS);
-
   useEffect(() => {
     // For web platform, expo-gl doesn't work well
     if (Platform.OS === 'web') {
       setLoading(false);
       return;
     }
-
-    console.log('✅ GL libraries loaded successfully');
 
     return () => {
       if (animationFrameRef.current) {
@@ -96,7 +92,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
           );
         });
 
-        console.log('✅ Model loaded');
         model = gltf.scene;
 
         // Apply bright material to ensure visibility
@@ -124,10 +119,8 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
         model.position.sub(center.multiplyScalar(scale));
 
         scene.add(model);
-        console.log('🎉 Model ready');
 
       } catch (err: any) {
-        console.error('❌ Load error:', err.message || err);
         setError(true);
       }
 
@@ -146,7 +139,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
 
       animate();
     } catch (err: any) {
-      console.error('❌ 3D viewer error:', err.message || err);
       setError(true);
       setLoading(false);
     }

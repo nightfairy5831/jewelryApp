@@ -25,6 +25,9 @@ const SUBCATEGORIES: { [key: string]: string[] } = {
   'Other': ['Perfumes', 'Watches', 'Other'],
 };
 
+const FILLING_OPTIONS = ['Solid', 'Hollow', 'Defense'];
+const GEMSTONE_OPTIONS = ['Synthetic', 'Natural', 'Without Stones'];
+
 export default function ProductFormScreen() {
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
@@ -37,6 +40,8 @@ export default function ProductFormScreen() {
     description: '',
     category: 'Male',
     subcategory: 'Chains',
+    filling: '',
+    is_gemstone: '',
     base_price: '',
     gold_weight_grams: '',
     gold_karat: '18k',
@@ -47,6 +52,8 @@ export default function ProductFormScreen() {
   const [loadingProduct, setLoadingProduct] = useState(isEditMode);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [subcategoryDropdownOpen, setSubcategoryDropdownOpen] = useState(false);
+  const [fillingDropdownOpen, setFillingDropdownOpen] = useState(false);
+  const [gemstoneDropdownOpen, setGemstoneDropdownOpen] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,6 +77,8 @@ export default function ProductFormScreen() {
           description: product.description || '',
           category: product.category || 'Male',
           subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0],
+          filling: product.filling || '',
+          is_gemstone: product.is_gemstone || '',
           base_price: product.base_price?.toString() || '',
           gold_weight_grams: product.gold_weight_grams?.toString() || '',
           gold_karat: product.gold_karat || '18k',
@@ -148,6 +157,8 @@ export default function ProductFormScreen() {
         description: formData.description.trim(),
         category: formData.category,
         subcategory: formData.subcategory || undefined,
+        filling: formData.filling || undefined,
+        is_gemstone: formData.is_gemstone || undefined,
         base_price: parseFloat(formData.base_price),
         gold_weight_grams: parseFloat(formData.gold_weight_grams),
         gold_karat: formData.gold_karat,
@@ -346,6 +357,110 @@ export default function ProductFormScreen() {
                   >
                     <Text style={styles.dropdownItemText}>{subcat}</Text>
                     {formData.subcategory === subcat && (
+                      <Ionicons name="checkmark" size={20} color="#2563eb" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Filling (Optional) */}
+        <View style={[styles.inputGroup, { zIndex: 999 }]}>
+          <Text style={styles.label}>Preenchimento (Opcional)</Text>
+          <View style={styles.selectContainer}>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setFillingDropdownOpen(!fillingDropdownOpen)}
+              disabled={loading}
+            >
+              <Text style={[styles.selectText, !formData.filling && styles.placeholderText]}>
+                {formData.filling || 'Selecione...'}
+              </Text>
+              <Ionicons
+                name={fillingDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+            {fillingDropdownOpen && (
+              <View style={styles.dropdownList}>
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    handleInputChange('filling', '');
+                    setFillingDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, styles.placeholderText]}>Nenhum</Text>
+                  {!formData.filling && (
+                    <Ionicons name="checkmark" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+                {FILLING_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      handleInputChange('filling', option);
+                      setFillingDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{option}</Text>
+                    {formData.filling === option && (
+                      <Ionicons name="checkmark" size={20} color="#2563eb" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Gemstone (Optional) */}
+        <View style={[styles.inputGroup, { zIndex: 998 }]}>
+          <Text style={styles.label}>Tipo de Pedra (Opcional)</Text>
+          <View style={styles.selectContainer}>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setGemstoneDropdownOpen(!gemstoneDropdownOpen)}
+              disabled={loading}
+            >
+              <Text style={[styles.selectText, !formData.is_gemstone && styles.placeholderText]}>
+                {formData.is_gemstone || 'Selecione...'}
+              </Text>
+              <Ionicons
+                name={gemstoneDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+            {gemstoneDropdownOpen && (
+              <View style={styles.dropdownList}>
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    handleInputChange('is_gemstone', '');
+                    setGemstoneDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, styles.placeholderText]}>Nenhum</Text>
+                  {!formData.is_gemstone && (
+                    <Ionicons name="checkmark" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+                {GEMSTONE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      handleInputChange('is_gemstone', option);
+                      setGemstoneDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{option}</Text>
+                    {formData.is_gemstone === option && (
                       <Ionicons name="checkmark" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
@@ -617,6 +732,9 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     color: '#111827',
+  },
+  placeholderText: {
+    color: '#9ca3af',
   },
   infoBox: {
     flexDirection: 'row',

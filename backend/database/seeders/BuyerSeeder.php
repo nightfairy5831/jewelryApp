@@ -21,11 +21,6 @@ class BuyerSeeder extends Seeder
                 'email' => 'buyer2@test.com',
                 'phone' => '(21) 98765-4321',
             ],
-            [
-                'name' => 'Roberto Fernandes',
-                'email' => 'buyer3@test.com',
-                'phone' => '(31) 99876-5432',
-            ],
         ];
 
         foreach ($buyers as $buyerData) {

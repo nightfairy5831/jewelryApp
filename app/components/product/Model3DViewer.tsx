@@ -12,8 +12,6 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [progress, setProgress] = useState<number>(0);
 
-  console.log('Model3DViewer rendering with URL:', modelUrl);
-
   const html = `
     <!DOCTYPE html>
     <html>
@@ -217,12 +215,11 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
         source={{ html }}
         style={styles.webview}
         onLoadEnd={() => {
-          console.log('WebView loaded');
           // Don't set loading to false here - wait for the 3D model to load
         }}
         onMessage={(event) => {
           const message = event.nativeEvent.data;
-          console.log('WebView message:', message);
+
           if (message === 'loaded') {
             setLoading(false);
             setErrorMsg(null);
@@ -230,11 +227,13 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
           } else if (message.startsWith('error:')) {
             setLoading(false);
             setErrorMsg(message.substring(6));
+            console.error('3D Model error:', message.substring(6));
           } else if (message.startsWith('loading:')) {
-            console.log('Starting to load:', message.substring(8));
+            // Silently handle loading start
           } else if (message.startsWith('progress:')) {
             const percent = parseInt(message.substring(9));
             setProgress(percent);
+            // Don't log progress updates - user can see progress on screen
           }
         }}
         onError={(syntheticEvent) => {

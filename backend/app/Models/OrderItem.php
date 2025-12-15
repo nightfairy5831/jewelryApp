@@ -13,6 +13,7 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'ring_customization_id',
     ];
 
     protected $casts = [
@@ -34,5 +35,10 @@ class OrderItem extends Model
     public function seller()
     {
         return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function ringCustomization()
+    {
+        return $this->belongsTo(RingCustomization::class);
     }
 }

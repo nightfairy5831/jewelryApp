@@ -182,12 +182,22 @@ async function apiCall<T>(
 
 // Product API
 export const productApi = {
-  // Get all products (public endpoint)
+  // Get all products (public endpoint) - Fetches ALL pages
   getAll: async (): Promise<Product[]> => {
-    const response = await apiCall<PaginatedResponse<any>>('/products');
+    const allProducts: any[] = [];
+    let currentPage = 1;
+    let lastPage = 1;
+
+    // Fetch all pages
+    do {
+      const response = await apiCall<PaginatedResponse<any>>(`/products?page=${currentPage}`);
+      allProducts.push(...response.data);
+      lastPage = response.last_page;
+      currentPage++;
+    } while (currentPage <= lastPage);
 
     // Transform Laravel response to match frontend Product interface
-    return response.data.map(transformProduct);
+    return allProducts.map(transformProduct);
   },
 
   // Get single product (public endpoint)

@@ -49,10 +49,7 @@ export default function CatalogScreen() {
 
     // Add 3D model if available
     if (currentProduct.model_3d_url) {
-      console.log('Adding 3D model:', currentProduct.model_3d_url);
       items.push({ type: '3d', url: currentProduct.model_3d_url });
-    } else {
-      console.log('No 3D model URL found for product:', currentProduct.name);
     }
 
     // Add video (max 1)
@@ -67,7 +64,6 @@ export default function CatalogScreen() {
       });
     }
 
-    console.log('Total media items:', items.length, items.map(i => i.type));
     return items;
   }, [currentProduct]);
 
