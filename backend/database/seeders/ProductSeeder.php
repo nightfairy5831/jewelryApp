@@ -32,7 +32,7 @@ class ProductSeeder extends Seeder
         foreach ($products as $index => $productData) {
             $seller = $sellers->random();
             $karat = $karats[array_rand($karats)];
-            $currentPrice = $productData['base_price'];
+            $currentPrice = 10.00; // Set all products to 10 BRL for testing
 
             // Use the product's specific image URL (each product has unique image)
             $imageUrl = $productData['image'];
@@ -48,7 +48,7 @@ class ProductSeeder extends Seeder
                 'seller_id' => $seller->id,
                 'name' => $productData['name'],
                 'description' => $descriptions[array_rand($descriptions)],
-                'base_price' => $productData['base_price'],
+                'base_price' => 10.00,
                 'current_price' => $currentPrice,
                 'gold_weight_grams' => $productData['gold_weight'],
                 'gold_karat' => $karat,

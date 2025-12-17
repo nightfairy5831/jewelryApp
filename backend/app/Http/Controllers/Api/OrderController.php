@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Cart;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -51,7 +52,6 @@ class OrderController extends Controller
             'shipping_address.state' => 'required|string',
             'shipping_address.postal_code' => 'required|string',
             'shipping_address.country' => 'required|string',
-            'payment_method' => 'required|in:pix,credit_card,boleto',
         ]);
 
         if ($validator->fails()) {
@@ -122,10 +122,10 @@ class OrderController extends Controller
                 $cartItem->product->decrement('stock_quantity', $cartItem->quantity);
             }
 
-            // Create payment record
+            // Create payment record (credit_card only)
             $payment = Payment::create([
                 'order_id' => $order->id,
-                'payment_method' => $request->payment_method,
+                'payment_method' => 'credit_card',
                 'amount' => $totalAmount,
                 'status' => 'pending',
             ]);
@@ -250,5 +250,37 @@ class OrderController extends Controller
             'message' => 'Order marked as shipped',
             'order' => $order,
         ]);
+    }
+
+    // Get purchased products with review status
+    public function purchasedProducts()
+    {
+        $user = Auth::user();
+
+        $products = OrderItem::whereHas('order', function ($query) use ($user) {
+            $query->where('buyer_id', $user->id)
+                  ->whereIn('status', ['confirmed', 'shipped']);
+        })
+        ->with(['product', 'order'])
+        ->get()
+        ->groupBy('product_id')
+        ->map(function ($items) use ($user) {
+            $item = $items->first();
+            $hasReview = Review::where('product_id', $item->product_id)
+                ->where('buyer_id', $user->id)
+                ->exists();
+
+            return [
+                'product_id' => $item->product_id,
+                'product_name' => $item->product->name ?? 'Unknown',
+                'product_image' => $item->product->images[0] ?? null,
+                'order_number' => $item->order->order_number ?? null,
+                'purchased_at' => $item->order->paid_at ?? $item->order->created_at,
+                'has_review' => $hasReview,
+            ];
+        })
+        ->values();
+
+        return response()->json($products);
     }
 }

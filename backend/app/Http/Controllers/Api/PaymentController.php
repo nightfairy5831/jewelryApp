@@ -15,85 +15,6 @@ use MercadoPago\Exceptions\MPApiException;
 
 class PaymentController extends Controller
 {
-    // Test Mercado Pago API connection
-    public function testConnection()
-    {
-        try {
-            $accessToken = config('services.mercadopago.access_token');
-            $publicKey = config('services.mercadopago.public_key');
-
-            // Check if credentials are configured
-            if (!$accessToken || !$publicKey) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Mercado Pago credentials not configured',
-                    'credentials' => [
-                        'access_token' => $accessToken ? 'Set' : 'Missing',
-                        'public_key' => $publicKey ? 'Set' : 'Missing',
-                    ],
-                ], 500);
-            }
-
-            // Initialize SDK v3
-            MercadoPagoConfig::setAccessToken($accessToken);
-
-            // Try to create a test preference using SDK v3
-            $client = new PreferenceClient();
-
-            $preferenceData = [
-                'items' => [
-                    [
-                        'title' => 'Test Connection',
-                        'quantity' => 1,
-                        'unit_price' => 10.00,
-                    ]
-                ],
-                'back_urls' => [
-                    'success' => config('app.url') . '/test-success',
-                    'failure' => config('app.url') . '/test-failure',
-                    'pending' => config('app.url') . '/test-pending',
-                ],
-                'auto_return' => 'approved',
-            ];
-
-            $preference = $client->create($preferenceData);
-
-            // Detect environment: If sandbox_init_point exists, it's test mode
-            $isSandbox = isset($preference->sandbox_init_point) && $preference->sandbox_init_point !== null;
-
-            // If we get here, the API is working
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Mercado Pago API connection successful!',
-                'sdk_version' => MercadoPagoConfig::$CURRENT_VERSION,
-                'environment' => $isSandbox ? 'sandbox' : 'production',
-                'credentials' => [
-                    'access_token' => substr($accessToken, 0, 20) . '...' . substr($accessToken, -10),
-                    'public_key' => substr($publicKey, 0, 20) . '...' . substr($publicKey, -10),
-                ],
-                'test_preference' => [
-                    'id' => $preference->id,
-                    'sandbox_init_point' => $preference->sandbox_init_point ?? null,
-                    'init_point' => $preference->init_point ?? null,
-                ],
-            ]);
-
-        } catch (MPApiException $e) {
-            Log::error('Mercado Pago API Error: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Mercado Pago API error: ' . $e->getMessage(),
-                'error_code' => $e->getCode(),
-            ], 500);
-        } catch (\Exception $e) {
-            Log::error('Mercado Pago connection test failed: ' . $e->getMessage());
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Connection test failed: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
     // Create payment with Mercado Pago (SDK v3)
     public function createIntent(Request $request)
     {
@@ -110,6 +31,7 @@ class PaymentController extends Controller
             ]);
 
             $order = Order::where('buyer_id', $user->id)
+                ->with('buyer')
                 ->findOrFail($request->order_id);
 
             $payment = Payment::where('order_id', $order->id)->firstOrFail();
@@ -132,37 +54,42 @@ class PaymentController extends Controller
 
             $client = new PreferenceClient();
 
-            // Build payment methods exclusion based on selected method
-            $excludedPaymentTypes = [];
-            if ($payment->payment_method === 'pix') {
-                $excludedPaymentTypes = [
-                    ['id' => 'credit_card'],
-                    ['id' => 'debit_card'],
-                    ['id' => 'ticket'],
-                ];
-            } elseif ($payment->payment_method === 'credit_card') {
-                $excludedPaymentTypes = [
-                    ['id' => 'ticket'],
-                ];
-            } elseif ($payment->payment_method === 'boleto') {
-                $excludedPaymentTypes = [
-                    ['id' => 'credit_card'],
-                    ['id' => 'debit_card'],
-                ];
-            }
+            // Get buyer information
+            $buyer = $order->buyer;
 
-            // Create preference data
+            Log::info('MercadoPago preference data preparation', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'buyer_name' => $buyer->name,
+                'buyer_email' => $buyer->email,
+                'amount' => $payment->amount,
+                'payment_method' => $payment->payment_method,
+            ]);
+
+            // Create preference data (credit card only)
             $preferenceData = [
                 'items' => [
                     [
                         'title' => "Order #{$order->order_number}",
                         'quantity' => 1,
+                        'currency_id' => 'BRL',
                         'unit_price' => (float) $payment->amount,
                     ]
                 ],
-                'payment_methods' => [
-                    'excluded_payment_types' => $excludedPaymentTypes,
+                'payer' => [
+                    'name' => $buyer->name,
+                    'email' => $buyer->email,
                 ],
+                'payment_methods' => [
+                    'installments' => 12, // Maximum installments allowed
+                    'default_installments' => 1, // Default to 1 installment
+                    'excluded_payment_types' => [
+                        ['id' => 'ticket'],      // Exclude boleto
+                        ['id' => 'atm'],         // Exclude bank debit
+                        ['id' => 'debit_card'],  // Exclude debit cards
+                    ],
+                ],
+                'binary_mode' => false, // Allow pending payments
                 'external_reference' => (string) $order->id,
                 'metadata' => [
                     'order_id' => $order->id,
@@ -170,14 +97,26 @@ class PaymentController extends Controller
                 ],
                 'notification_url' => config('app.url') . '/api/payments/webhook',
                 'back_urls' => [
-                    'success' => config('app.url') . '/payment-success',
-                    'failure' => config('app.url') . '/payment-failure',
-                    'pending' => config('app.url') . '/payment-pending',
+                    'success' => 'perfectjewel://payment-success',
+                    'failure' => 'perfectjewel://payment-failure',
+                    'pending' => 'perfectjewel://payment-pending',
                 ],
                 'auto_return' => 'approved',
+                'statement_descriptor' => 'PERFECT JEWEL',
             ];
 
+            Log::info('Sending preference to MercadoPago', [
+                'preference_data' => $preferenceData,
+                'access_token_prefix' => substr($accessToken, 0, 20),
+            ]);
+
             $preference = $client->create($preferenceData);
+
+            Log::info('MercadoPago preference response', [
+                'preference_id' => $preference->id,
+                'init_point' => $preference->init_point ?? 'null',
+                'sandbox_init_point' => $preference->sandbox_init_point ?? 'null',
+            ]);
 
             $payment->update([
                 'transaction_id' => $preference->id,
@@ -222,10 +161,16 @@ class PaymentController extends Controller
     public function webhook(Request $request)
     {
         try {
+            Log::info('🔔 Mercado Pago webhook received', [
+                'all_data' => $request->all(),
+                'headers' => $request->headers->all(),
+            ]);
+
             $type = $request->input('type');
 
             // Handle payment notification
             if ($type === 'payment') {
+                Log::info('💳 Processing payment webhook');
                 $paymentId = $request->input('data.id');
 
                 if (!$paymentId) {
@@ -258,8 +203,15 @@ class PaymentController extends Controller
                 }
 
                 // Handle payment status
+                Log::info("💰 Payment status from Mercado Pago: {$mpPayment->status}", [
+                    'payment_id' => $mpPayment->id,
+                    'order_id' => $orderId,
+                    'amount' => $mpPayment->transaction_amount ?? null,
+                ]);
+
                 switch ($mpPayment->status) {
                     case 'approved':
+                        Log::info('✅ Payment APPROVED - updating to completed');
                         $this->handlePaymentSuccess([
                             'id' => $mpPayment->id,
                             'status' => $mpPayment->status,
@@ -269,6 +221,7 @@ class PaymentController extends Controller
 
                     case 'rejected':
                     case 'cancelled':
+                        Log::info('❌ Payment REJECTED/CANCELLED - updating to failed');
                         $this->handlePaymentFailure([
                             'id' => $mpPayment->id,
                             'status' => $mpPayment->status,
@@ -279,7 +232,7 @@ class PaymentController extends Controller
                     case 'pending':
                     case 'in_process':
                         // Payment is still processing, do nothing
-                        Log::info("Payment {$mpPayment->id} is {$mpPayment->status}");
+                        Log::info("⏳ Payment {$mpPayment->id} is {$mpPayment->status}");
                         break;
                 }
             }

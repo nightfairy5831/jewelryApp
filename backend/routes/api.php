@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\SellerController;
+use App\Http\Controllers\Api\UploadController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -24,45 +25,11 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 // Public review routes
 Route::get('/products/{productId}/reviews', [ReviewController::class, 'index']);
 
-// Debug route - TODO: Remove in production
-Route::get('/debug/products', function () {
-    $maleProducts = \App\Models\Product::where('category', 'Male')->get();
-    $activeSellers = \App\Models\User::where('role', 'seller')->where('is_active', true)->get();
-    $maleWithActiveSellers = \App\Models\Product::where('category', 'Male')
-        ->whereHas('seller', function($q) {
-            $q->where('is_active', true);
-        })
-        ->get();
-
-    return response()->json([
-        'total_male_products' => $maleProducts->count(),
-        'male_products' => $maleProducts->map(fn($p) => [
-            'id' => $p->id,
-            'name' => $p->name,
-            'seller_id' => $p->seller_id,
-            'status' => $p->status,
-            'is_active' => $p->is_active,
-            'seller_exists' => $p->seller ? true : false,
-            'seller_is_active' => $p->seller?->is_active ?? false,
-        ]),
-        'total_active_sellers' => $activeSellers->count(),
-        'active_sellers' => $activeSellers->map(fn($s) => [
-            'id' => $s->id,
-            'name' => $s->name,
-            'is_active' => $s->is_active,
-        ]),
-        'male_products_with_active_sellers' => $maleWithActiveSellers->count(),
-    ]);
-});
-
 // Public gold price routes
 Route::get('/gold-price/current', [GoldPriceController::class, 'getCurrentPrice']);
 
 // Mercado Pago webhook (public route - no auth required)
 Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
-
-// Test Mercado Pago connection (public route for testing)
-Route::get('/payments/test-connection', [PaymentController::class, 'testConnection']);
 
 // Protected routes (require JWT authentication)
 Route::middleware('auth:api')->group(function () {
@@ -96,6 +63,7 @@ Route::middleware('auth:api')->group(function () {
     // Order routes (Buyer)
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);
+        Route::get('/purchased-products', [OrderController::class, 'purchasedProducts']);
         Route::get('/{id}', [OrderController::class, 'show']);
         Route::post('/', [OrderController::class, 'store']);
         Route::post('/{id}/cancel', [OrderController::class, 'cancel']);
@@ -128,5 +96,11 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/add', [WishlistController::class, 'add']);
         Route::delete('/{productId}', [WishlistController::class, 'remove']);
         Route::post('/clear', [WishlistController::class, 'clear']);
+    });
+
+    // File upload routes
+    Route::prefix('upload')->group(function () {
+        Route::post('/r2', [UploadController::class, 'upload']);
+        Route::delete('/r2/{key}', [UploadController::class, 'delete'])->where('key', '.*');
     });
 });

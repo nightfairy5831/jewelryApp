@@ -26,7 +26,7 @@ class GoldPriceService
                 'price_gram_16k' => $prices['price_gram_16k'],
                 'price_gram_14k' => $prices['price_gram_14k'],
                 'price_gram_10k' => $prices['price_gram_10k'],
-                'currency' => 'USD',
+                'currency' => 'BRL',
                 'source' => 'mock_api',
                 'scraped_at' => now(),
             ]);
@@ -90,21 +90,25 @@ class GoldPriceService
             if ($response->successful()) {
                 $data = $response->json();
 
+                // Convert USD prices to BRL
+                $conversionRate = $this->getUsdToBrlRate();
+
                 return [
                     'success' => true,
-                    'price_gram_24k' => $data['price_gram_24k'] ?? null,
-                    'price_gram_22k' => $data['price_gram_22k'] ?? null,
-                    'price_gram_21k' => $data['price_gram_21k'] ?? null,
-                    'price_gram_20k' => $data['price_gram_20k'] ?? null,
-                    'price_gram_18k' => $data['price_gram_18k'] ?? null,
-                    'price_gram_16k' => $data['price_gram_16k'] ?? null,
-                    'price_gram_14k' => $data['price_gram_14k'] ?? null,
-                    'price_gram_10k' => $data['price_gram_10k'] ?? null,
-                    'currency' => 'USD',
+                    'price_gram_24k' => ($data['price_gram_24k'] ?? null) ? round($data['price_gram_24k'] * $conversionRate, 2) : null,
+                    'price_gram_22k' => ($data['price_gram_22k'] ?? null) ? round($data['price_gram_22k'] * $conversionRate, 2) : null,
+                    'price_gram_21k' => ($data['price_gram_21k'] ?? null) ? round($data['price_gram_21k'] * $conversionRate, 2) : null,
+                    'price_gram_20k' => ($data['price_gram_20k'] ?? null) ? round($data['price_gram_20k'] * $conversionRate, 2) : null,
+                    'price_gram_18k' => ($data['price_gram_18k'] ?? null) ? round($data['price_gram_18k'] * $conversionRate, 2) : null,
+                    'price_gram_16k' => ($data['price_gram_16k'] ?? null) ? round($data['price_gram_16k'] * $conversionRate, 2) : null,
+                    'price_gram_14k' => ($data['price_gram_14k'] ?? null) ? round($data['price_gram_14k'] * $conversionRate, 2) : null,
+                    'price_gram_10k' => ($data['price_gram_10k'] ?? null) ? round($data['price_gram_10k'] * $conversionRate, 2) : null,
+                    'currency' => 'BRL',
                     'metal' => $data['metal'] ?? 'XAU',
                     'timestamp' => $data['timestamp'] ?? now()->timestamp,
                     'date' => isset($data['timestamp']) ? date('Y-m-d H:i:s', $data['timestamp']) : now()->toDateTimeString(),
                     'raw_response' => $data,
+                    'conversion_rate' => $conversionRate,
                 ];
             }
 
@@ -222,15 +226,19 @@ class GoldPriceService
 
             if ($response->successful()) {
                 $data = $response->json();
+
+                // Convert USD prices to BRL
+                $conversionRate = $this->getUsdToBrlRate();
+
                 return [
-                    'price_gram_24k' => $data['price_gram_24k'] ?? null,
-                    'price_gram_22k' => $data['price_gram_22k'] ?? null,
-                    'price_gram_21k' => $data['price_gram_21k'] ?? null,
-                    'price_gram_20k' => $data['price_gram_20k'] ?? null,
-                    'price_gram_18k' => $data['price_gram_18k'] ?? null,
-                    'price_gram_16k' => $data['price_gram_16k'] ?? null,
-                    'price_gram_14k' => $data['price_gram_14k'] ?? null,
-                    'price_gram_10k' => $data['price_gram_10k'] ?? null,
+                    'price_gram_24k' => ($data['price_gram_24k'] ?? null) ? round($data['price_gram_24k'] * $conversionRate, 2) : null,
+                    'price_gram_22k' => ($data['price_gram_22k'] ?? null) ? round($data['price_gram_22k'] * $conversionRate, 2) : null,
+                    'price_gram_21k' => ($data['price_gram_21k'] ?? null) ? round($data['price_gram_21k'] * $conversionRate, 2) : null,
+                    'price_gram_20k' => ($data['price_gram_20k'] ?? null) ? round($data['price_gram_20k'] * $conversionRate, 2) : null,
+                    'price_gram_18k' => ($data['price_gram_18k'] ?? null) ? round($data['price_gram_18k'] * $conversionRate, 2) : null,
+                    'price_gram_16k' => ($data['price_gram_16k'] ?? null) ? round($data['price_gram_16k'] * $conversionRate, 2) : null,
+                    'price_gram_14k' => ($data['price_gram_14k'] ?? null) ? round($data['price_gram_14k'] * $conversionRate, 2) : null,
+                    'price_gram_10k' => ($data['price_gram_10k'] ?? null) ? round($data['price_gram_10k'] * $conversionRate, 2) : null,
                 ];
             }
 
@@ -277,5 +285,49 @@ class GoldPriceService
                     $product->update(['current_price' => $newPrice]);
                 }
             });
+    }
+
+    /**
+     * Get current USD to BRL conversion rate
+     * Uses ExchangeRate API or fallback to a default rate
+     *
+     * @return float
+     */
+    private function getUsdToBrlRate(): float
+    {
+        try {
+            $apiKey = env('EXCHANGERATE_API_KEY');
+
+            if (!$apiKey) {
+                // Fallback to approximate rate if API key not configured
+                return 5.00;
+            }
+
+            $response = Http::timeout(10)->get('https://api.exchangerate.host/convert', [
+                'access_key' => $apiKey,
+                'from' => 'USD',
+                'to' => 'BRL',
+                'amount' => 1,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if (isset($data['success']) && $data['success'] === true) {
+                    $rate = $data['result'] ?? $data['info']['rate'] ?? null;
+                    if ($rate) {
+                        return (float) $rate;
+                    }
+                }
+            }
+
+            // Fallback to approximate rate if API call fails
+            Log::warning('ExchangeRate API failed, using fallback rate');
+            return 5.00;
+
+        } catch (\Exception $e) {
+            Log::error('ExchangeRate fetch error: ' . $e->getMessage());
+            return 5.00; // Fallback rate
+        }
     }
 }

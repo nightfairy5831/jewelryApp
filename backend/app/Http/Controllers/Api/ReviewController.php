@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Review;
 use App\Models\Product;
+use App\Models\OrderItem;
 use Illuminate\Http\Request;
 
 class ReviewController extends Controller
@@ -41,7 +42,7 @@ class ReviewController extends Controller
         ]);
     }
 
-    // Create a new review (buyer only)
+    // Create a new review (buyer only, must have purchased)
     public function store(Request $request, $productId)
     {
         $user = $request->user();
@@ -57,6 +58,18 @@ class ReviewController extends Controller
         ]);
 
         $product = Product::findOrFail($productId);
+
+        // Check if user has purchased this product
+        $hasPurchased = OrderItem::whereHas('order', function ($query) use ($user) {
+            $query->where('buyer_id', $user->id)
+                  ->whereIn('status', ['confirmed', 'shipped']);
+        })
+        ->where('product_id', $productId)
+        ->exists();
+
+        if (!$hasPurchased) {
+            return response()->json(['error' => 'You can only review products you have purchased'], 403);
+        }
 
         // Check if user already reviewed this product
         $existingReview = Review::where('product_id', $productId)
