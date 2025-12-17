@@ -506,7 +506,7 @@ export default function ProductFormScreen() {
             Quilate do Ouro <Text style={styles.required}>*</Text>
           </Text>
           <View style={styles.radioGroup}>
-            {['18k', '22k', '24k'].map((karat) => (
+            {['10k', '18k'].map((karat) => (
               <TouchableOpacity
                 key={karat}
                 style={[

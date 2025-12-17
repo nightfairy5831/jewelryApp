@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
 import Model3DViewer from '../../components/product/Model3DViewer';
+import { API_CONFIG } from '../../config/api';
 
 const GOLDEN_RATIO = 0.618;
 
@@ -39,6 +40,11 @@ export default function CatalogScreen() {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  // Reset button state when switching to detail mode or changing product
+  useEffect(() => {
+    setAddingToCart(false);
+  }, [catalogMode, currentProductIndex]);
 
   const currentProduct = filteredProducts[currentProductIndex];
 
@@ -95,6 +101,8 @@ export default function CatalogScreen() {
   };
 
   const handleAddToCart = async () => {
+    console.log('🔍 Auth state:', { isAuthenticated, hasToken: !!authToken });
+
     if (!isAuthenticated || !authToken) {
       Alert.alert('Login Necessário', 'Por favor, faça login para adicionar produtos ao carrinho', [
         { text: 'Cancelar', style: 'cancel' },
@@ -113,7 +121,51 @@ export default function CatalogScreen() {
         { text: 'Ir para Carrinho', onPress: () => router.push('/(tabs)/cart') },
       ]);
     } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Falha ao adicionar ao carrinho');
+      console.error('❌ Add to cart error:', error);
+
+      // Check if it's an auth error
+      if (error.message?.includes('Session expired') || error.message?.includes('Not authenticated')) {
+        Alert.alert('Sessão Expirada', 'Por favor, faça login novamente', [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/login') },
+        ]);
+      } else {
+        Alert.alert('Erro', error.message || 'Falha ao adicionar ao carrinho');
+      }
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    console.log('🔍 Auth state (Buy Now):', { isAuthenticated, hasToken: !!authToken });
+
+    if (!isAuthenticated || !authToken) {
+      Alert.alert('Login Necessário', 'Por favor, faça login para continuar', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Fazer Login', onPress: () => router.push('/auth/login') },
+      ]);
+      return;
+    }
+
+    if (!currentProduct) return;
+
+    setAddingToCart(true);
+    try {
+      // Clear cart and add only this product
+      await addToCart(parseInt(currentProduct.id), 1, true); // true = clear cart first
+
+      // Navigate to checkout
+      router.push('/checkout');
+    } catch (error: any) {
+      console.error('❌ Buy now error:', error);
+
+      if (error.message?.includes('Session expired') || error.message?.includes('Not authenticated')) {
+        Alert.alert('Sessão Expirada', 'Por favor, faça login novamente', [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/login') },
+        ]);
+      } else {
+        Alert.alert('Erro', error.message || 'Falha ao processar');
+      }
     } finally {
       setAddingToCart(false);
     }
@@ -371,7 +423,7 @@ export default function CatalogScreen() {
                 style={styles.cartCell}
                 onPress={() => router.push('/(tabs)/cart')}
               >
-                <Image source={require('../../assets/wishes.png')} style={styles.wishesIconLarge} resizeMode="contain" />
+                <Image source={require('../../assets/icon.png')} style={styles.wishesIconLarge} resizeMode="contain" />
                 <View style={styles.wishesCountBadge}>
                   <Text style={styles.wishesCountText}>
                     {cartItemsCount}
@@ -395,27 +447,39 @@ export default function CatalogScreen() {
 
       </View>
 
-      {/* Sticky Add to Cart Button - Only visible in detail mode */}
+      {/* Sticky Buttons - Only visible in detail mode */}
       {catalogMode === 'detail' && currentProduct && (
         <View style={styles.stickyButtonContainer}>
           <LinearGradient
             colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
             style={styles.gradientBackground}
           />
-          <TouchableOpacity
-            style={[styles.stickyAddToCartButton, addingToCart && styles.stickyAddToCartButtonDisabled]}
-            onPress={handleAddToCart}
-            disabled={addingToCart}
-          >
-            {addingToCart ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="cart" size={20} color="#ffffff" />
-                <Text style={styles.stickyAddToCartText}>Adicionar ao carrinho</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            {/* Desejo Button - Add to Cart */}
+            <TouchableOpacity
+              style={[styles.desejoButton, addingToCart && styles.buttonDisabled]}
+              onPress={handleAddToCart}
+              disabled={addingToCart}
+            >
+              {addingToCart ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <>
+                  <Ionicons name="heart-outline" size={20} color="#000000" />
+                  <Text style={styles.desejoButtonText}>Desejo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Comprar Button - Buy Now */}
+            <TouchableOpacity
+              style={[styles.comprarButton, addingToCart && styles.buttonDisabled]}
+              onPress={handleBuyNow}
+              disabled={addingToCart}
+            >
+              <Text style={styles.comprarButtonText}>Comprar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>
@@ -758,19 +822,19 @@ const styles = StyleSheet.create({
     height: 48,
   },
   wishesIcon: {
-    width: 32,
-    height: 32,
+    width: 50,
+    height: 50,
     tintColor: '#ffffff',
   },
   wishesIconLarge: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
   },
   wishesCountBadge: {
     backgroundColor: '#000000',
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 1,
     marginTop: 8,
     minWidth: 40,
     alignItems: 'center',
@@ -881,7 +945,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Sticky Add to Cart Button
+  // Sticky Buttons Container
   stickyButtonContainer: {
     position: 'absolute',
     bottom: 0,
@@ -898,27 +962,52 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  stickyAddToCartButton: {
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  desejoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D1D5DB',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    gap: 6,
+    flex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  desejoButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  comprarButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#000000',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 16,
-    gap: 6,
+    borderRadius: 25,
+    flex: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 5,
   },
-  stickyAddToCartButtonDisabled: {
-    backgroundColor: '#666',
-  },
-  stickyAddToCartText: {
+  comprarButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

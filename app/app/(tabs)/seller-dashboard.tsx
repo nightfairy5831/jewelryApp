@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { useAppStore } from '../../store/useAppStore';
 import { sellerApi, type SellerDashboard } from '../../services/api';
 import FABMenu from '../../components/FABMenu';
+import GoldPriceIndicator from '../../components/ui/GoldPriceIndicator';
 
 export default function SellerDashboardScreen() {
   const router = useRouter();
@@ -117,6 +118,11 @@ export default function SellerDashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
         }
       >
+        {/* Gold Price Indicator */}
+        <View style={styles.goldPriceContainer}>
+          <GoldPriceIndicator />
+        </View>
+
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -337,6 +343,10 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     marginTop: 8,
+  },
+  goldPriceContainer: {
+    padding: 16,
+    paddingBottom: 0,
   },
   statsContainer: {
     flexDirection: 'row',

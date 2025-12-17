@@ -88,7 +88,7 @@ interface AppState {
 
   // Phase 5: Shopping & Payments Actions
   fetchCart: () => Promise<void>;
-  addToCart: (productId: number, quantity?: number) => Promise<void>;
+  addToCart: (productId: number, quantity?: number, clearFirst?: boolean) => Promise<void>;
   updateCartQuantity: (itemId: number, quantity: number) => Promise<void>;
   removeFromCart: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -401,14 +401,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addToCart: async (productId, quantity = 1) => {
+  addToCart: async (productId, quantity = 1, clearFirst = false) => {
     const { authToken } = get();
     if (!authToken) throw new Error('Not authenticated');
 
     try {
+      // Clear cart first if requested (for buy-now flow)
+      if (clearFirst) {
+        await get().clearCart();
+      }
+
       await cartApi.addItem(authToken, productId, quantity);
       await get().fetchCart(); // Refresh cart
     } catch (error: any) {
+      // If session expired, clear auth state
+      if (error.message?.includes('Session expired')) {
+        set({
+          currentUser: null,
+          authToken: null,
+          isAuthenticated: false,
+        });
+      }
       throw new Error(error.message || 'Failed to add to cart');
     }
   },

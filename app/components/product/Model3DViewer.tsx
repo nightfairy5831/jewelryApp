@@ -21,14 +21,14 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
         body {
           margin: 0;
           overflow: hidden;
-          background: #e8e8e8;
+          background: #000000;
           display: flex;
           align-items: center;
           justify-content: center;
         }
         #canvas { width: 100%; height: 100vh; display: block; }
         #error { color: red; padding: 20px; text-align: center; font-family: sans-serif; display: none; }
-        #loading { color: #666; padding: 20px; text-align: center; font-family: sans-serif; }
+        #loading { color: #ffffff; padding: 20px; text-align: center; font-family: sans-serif; display: none; }
       </style>
     </head>
     <body>
@@ -57,8 +57,8 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
         try {
           const scene = new THREE.Scene();
 
-          // Light gray background to make gold model pop
-          scene.background = new THREE.Color(0xe8e8e8);
+          // Black background for elegant jewelry display
+          scene.background = new THREE.Color(0x000000);
 
           const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
           camera.position.z = 5;
@@ -253,7 +253,7 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
       />
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#FFCC00" />
+          <ActivityIndicator size="large" color="#D4AF37" />
           {progress > 0 && progress < 100 && (
             <RNText style={styles.progressText}>{progress}%</RNText>
           )}
@@ -271,11 +271,10 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#e8e8e8',
+    backgroundColor: '#000000',
     borderWidth: 2,
-    borderColor: '#d1d5db',
+    borderColor: '#000000',
   },
   webview: {
     flex: 1,
@@ -289,11 +288,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
   },
   progressText: {
     marginTop: 12,
-    color: '#666',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -305,7 +304,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
     padding: 20,
   },
   errorText: {

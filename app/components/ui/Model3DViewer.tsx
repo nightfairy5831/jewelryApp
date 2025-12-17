@@ -44,7 +44,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
       // Setup renderer
       const renderer = new Renderer({ gl });
       renderer.setSize(gl.drawingBufferWidth, gl.drawingBufferHeight);
-      renderer.setClearColor(0x1a1a2e, 1); // Dark background to see the model
+      renderer.setClearColor(0x000000, 1); // Black background for elegant jewelry display
 
       // Setup scene
       const scene = new THREE.Scene();
@@ -162,7 +162,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
     <View style={[styles.container, style]}>
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3b82f6" />
+          <ActivityIndicator size="large" color="#D4AF37" />
           <Text style={styles.loadingText}>Loading 3D Model...</Text>
         </View>
       )}
@@ -183,7 +183,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({ modelUrl, style })
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#000000',
   },
   glView: {
     flex: 1,
@@ -196,13 +196,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#000000',
     zIndex: 10,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#6b7280',
+    color: '#ffffff',
   },
   errorContainer: {
     position: 'absolute',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#000000',
     zIndex: 10,
   },
   errorText: {

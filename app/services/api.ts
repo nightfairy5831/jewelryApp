@@ -793,6 +793,27 @@ export const sellerApi = {
   },
 };
 
+// Gold Price API
+export interface GoldPriceData {
+  price: number;
+  price_24k: number;
+  price_22k: number;
+  price_21k: number;
+  price_20k: number;
+  price_18k: number;
+  price_16k: number;
+  price_14k: number;
+  price_10k: number;
+  source: string;
+  updated_at: string;
+}
+
+export const goldPriceApi = {
+  getCurrentPrice: async (): Promise<{ success: boolean; data: GoldPriceData }> => {
+    return await apiCall<{ success: boolean; data: GoldPriceData }>('/gold-price/current');
+  },
+};
+
 export default {
   productApi,
   authApi,
@@ -802,4 +823,5 @@ export default {
   paymentApi,
   wishlistApi,
   sellerApi,
+  goldPriceApi,
 };
