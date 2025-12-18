@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { router } from 'expo-router';
 import { API_CONFIG } from '../../config/api';
 
@@ -18,16 +19,17 @@ interface PurchasedProduct {
 }
 
 export default function PerfilScreen() {
-  const { currentUser, logout, authToken } = useAppStore();
+  const { logout, authToken } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<'wishes' | 'shopping' | 'message'>('shopping');
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUser && activeTab === 'shopping') {
+    if (authToken && activeTab === 'shopping') {
       fetchPurchasedProducts();
     }
-  }, [currentUser, activeTab]);
+  }, [authToken, activeTab]);
 
   const fetchPurchasedProducts = async () => {
     if (!authToken) return;
@@ -64,7 +66,8 @@ export default function PerfilScreen() {
           onPress: async () => {
             try {
               await logout();
-              router.replace('/(auth)/login');
+              // Explicitly navigate to index to avoid staying on seller-dashboard
+              router.replace('/(tabs)');
             } catch (error) {
               console.error('Logout failed:', error);
             }

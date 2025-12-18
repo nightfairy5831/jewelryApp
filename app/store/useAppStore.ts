@@ -27,11 +27,9 @@ interface SellerRegistrationData {
 }
 
 interface AppState {
-  // Auth State
-  currentUser: User | null;
+  // Auth State - ULTRA SIMPLIFIED: Only token!
   authToken: string | null;
   isAuthLoading: boolean;
-  isAuthenticated: boolean;
 
   // Seller Registration State
   sellerRegistrationData: SellerRegistrationData | null;
@@ -99,11 +97,9 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Auth initial state
-  currentUser: null,
+  // Auth initial state - ULTRA SIMPLIFIED
   authToken: null,
   isAuthLoading: false,
-  isAuthenticated: false,
 
   // Seller Registration initial state
   sellerRegistrationData: null,
@@ -150,16 +146,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await authApi.login(email, password);
 
-      // Store token in AsyncStorage
+      // Store token AND user data
       await AsyncStorage.setItem('authToken', response.token);
+      await AsyncStorage.setItem('currentUser', JSON.stringify(response.user));
       if (remember) {
         await AsyncStorage.setItem('rememberMe', 'true');
       }
 
       set({
-        currentUser: response.user,
         authToken: response.token,
-        isAuthenticated: true,
         isAuthLoading: false,
       });
     } catch (error: any) {
@@ -173,13 +168,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await authApi.register(name, email, password, passwordConfirmation, phone, role);
 
-      // Store token in AsyncStorage
+      // Store token AND user data
       await AsyncStorage.setItem('authToken', response.token);
+      await AsyncStorage.setItem('currentUser', JSON.stringify(response.user));
 
       set({
-        currentUser: response.user,
         authToken: response.token,
-        isAuthenticated: true,
         isAuthLoading: false,
       });
     } catch (error: any) {
@@ -197,14 +191,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear auth state and storage
+      // Clear all auth-related data from AsyncStorage
       await AsyncStorage.removeItem('authToken');
+      await AsyncStorage.removeItem('currentUser');
       await AsyncStorage.removeItem('rememberMe');
 
+      // Reset all store state to initial values
       set({
-        currentUser: null,
         authToken: null,
-        isAuthenticated: false,
+        cart: null,
+        cartItemsCount: 0,
+        orders: [],
+        wishlist: [],
+        sellerRegistrationData: null,
+        isAuthLoading: false,
+        error: null,
       });
     }
   },
@@ -212,34 +213,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   checkAuth: async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-
       if (token) {
-        // Optimistically set token and mark as authenticated
-        // This allows the app to load immediately
-        set({
-          authToken: token,
-          isAuthenticated: true,
-        });
-
-        // Verify token with API in background (non-blocking for splash)
-        // This happens after the splash screen is dismissed
-        setTimeout(async () => {
-          try {
-            const user = await authApi.getMe(token);
-            set({
-              currentUser: user,
-            });
-          } catch (error) {
-            // Token invalid or expired, clear auth state
-            await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.removeItem('rememberMe');
-            set({
-              currentUser: null,
-              authToken: null,
-              isAuthenticated: false,
-            });
-          }
-        }, 0);
+        set({ authToken: token });
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -417,9 +392,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       // If session expired, clear auth state
       if (error.message?.includes('Session expired')) {
         set({
-          currentUser: null,
           authToken: null,
-          isAuthenticated: false,
         });
       }
       throw new Error(error.message || 'Failed to add to cart');

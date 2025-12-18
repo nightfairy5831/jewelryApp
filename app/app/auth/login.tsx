@@ -32,7 +32,8 @@ export default function Login() {
 
     try {
       await login(email, password, false);
-      router.replace('/(tabs)');
+      // Don't navigate - let the _layout routing logic handle it
+      // The useEffect in _layout will detect auth change and route appropriately
     } catch (error: any) {
       Alert.alert('Erro no Login', error.message || 'Email ou senha incorretos');
     }

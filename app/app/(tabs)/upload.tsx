@@ -8,7 +8,8 @@ import { useAppStore } from '../../store/useAppStore';
 import { API_CONFIG } from '../../config/api';
 
 export default function UploadScreen() {
-  const { authToken, isAuthenticated } = useAppStore();
+  const { authToken } = useAppStore();
+  const isAuthenticated = !!authToken;
   const [images, setImages] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [models, setModels] = useState<string[]>([]);

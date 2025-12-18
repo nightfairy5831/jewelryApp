@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import type { Product } from '../../data/products';
 import { Card, StarRating } from '../ui';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 interface ProductCardProps {
   product: Product;
@@ -11,7 +12,9 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
-  const { currentUser, toggleSave, addToCart, isAuthenticated } = useAppStore();
+  const { toggleSave, addToCart, authToken } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
+  const isAuthenticated = !!authToken;
   const isSaved = currentUser?.savedProducts?.includes(product.id) || false;
 
   const shippingInfo = product.shipping?.free

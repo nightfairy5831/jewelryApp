@@ -7,11 +7,12 @@ import { router } from 'expo-router';
 export default function WishlistScreen() {
   const {
     wishlist,
-    isAuthenticated,
+    authToken,
     fetchWishlist,
     removeFromWishlist,
     addToCart,
   } = useAppStore();
+  const isAuthenticated = !!authToken;
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
