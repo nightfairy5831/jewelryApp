@@ -16,10 +16,11 @@ class GoldPriceSeeder extends Seeder
     {
         GoldPrice::truncate();
 
-        $basePrice24k = 132.22;
+        // Base price in BRL (converted from ~$132.22 USD at ~5.0 rate)
+        $basePrice24k = 661.10;
 
         for ($i = 9; $i >= 0; $i--) {
-            $variation = rand(-500, 500) / 100;
+            $variation = rand(-2500, 2500) / 100; // Adjusted for BRL
             $price24k = round($basePrice24k + $variation, 2);
 
             GoldPrice::create([
@@ -32,7 +33,7 @@ class GoldPriceSeeder extends Seeder
                 'price_gram_16k' => round($price24k * 0.6667, 2),
                 'price_gram_14k' => round($price24k * 0.5833, 2),
                 'price_gram_10k' => round($price24k * 0.4167, 2),
-                'currency' => 'USD',
+                'currency' => 'BRL',
                 'source' => 'mock_api',
                 'scraped_at' => Carbon::now()->subHours($i),
             ]);

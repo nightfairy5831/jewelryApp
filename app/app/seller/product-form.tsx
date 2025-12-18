@@ -8,22 +8,27 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppStore } from '../../store/useAppStore';
-import { productApi, sellerApi } from '../../services/api';
+import { productApi, sellerApi, uploadApi } from '../../services/api';
 
-// Categories and Subcategories based on Buyer Dashboard (first 4 items only)
-const CATEGORIES = ['Masculino', 'Feminino', 'Formatura', 'Casamento'];
+// Categories and Subcategories
+const CATEGORIES = ['Male', 'Female', 'Wedding Rings', 'Other'];
 
 const SUBCATEGORIES: { [key: string]: string[] } = {
-  'Masculino': ['Anéis', 'Colares', 'Pulseiras'],
-  'Feminino': ['Anéis', 'Colares', 'Pulseiras'],
-  'Formatura': ['Anéis', 'Medalhas', 'Broches'],
-  'Casamento': ['Alianças', 'Conjuntos', 'Tiaras'],
+  'Male': ['Chains', 'Rings', 'Earrings and Pendants'],
+  'Female': ['Chains', 'Rings', 'Earrings and Pendants'],
+  'Wedding Rings': ['Wedding Anniversary', 'Engagement', 'Marriage'],
+  'Other': ['Perfumes', 'Watches', 'Other'],
 };
+
+const FILLING_OPTIONS = ['Solid', 'Hollow', 'Defense'];
+const GEMSTONE_OPTIONS = ['Synthetic', 'Natural', 'Without Stones'];
 
 export default function ProductFormScreen() {
   const router = useRouter();
@@ -35,18 +40,27 @@ export default function ProductFormScreen() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'Masculino',
-    subcategory: 'Anéis',
+    category: 'Male',
+    subcategory: 'Chains',
+    filling: '',
+    is_gemstone: '',
     base_price: '',
     gold_weight_grams: '',
     gold_karat: '18k',
     stock_quantity: '1',
   });
 
+  const [images, setImages] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [model3dUrl, setModel3dUrl] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEditMode);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [subcategoryDropdownOpen, setSubcategoryDropdownOpen] = useState(false);
+  const [fillingDropdownOpen, setFillingDropdownOpen] = useState(false);
+  const [gemstoneDropdownOpen, setGemstoneDropdownOpen] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,13 +82,17 @@ export default function ProductFormScreen() {
         setFormData({
           name: product.name || '',
           description: product.description || '',
-          category: product.category || 'Masculino',
-          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Masculino'][0],
+          category: product.category || 'Male',
+          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0],
+          filling: product.filling || '',
+          is_gemstone: product.is_gemstone || '',
           base_price: product.base_price?.toString() || '',
           gold_weight_grams: product.gold_weight_grams?.toString() || '',
           gold_karat: product.gold_karat || '18k',
           stock_quantity: product.stock_quantity?.toString() || '1',
         });
+        setImages(product.images ? JSON.parse(product.images) : []);
+        setModel3dUrl(product.model_3d_url || '');
       } else {
         Alert.alert('Erro', 'Produto não encontrado');
         router.back();
@@ -90,6 +108,56 @@ export default function ProductFormScreen() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const pickFile = async (fileType: 'image' | 'video' | '3d_model') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadFile(result.assets[0], fileType);
+    }
+  };
+
+  const uploadFile = async (asset: any, type: 'image' | 'video' | '3d_model') => {
+    if (!authToken) return;
+
+    setUploading(true);
+    try {
+      const file = {
+        uri: asset.uri,
+        type: asset.mimeType || 'application/octet-stream',
+        name: asset.name || `file.${asset.uri.split('.').pop()}`,
+      };
+
+      const response = await uploadApi.uploadFile(authToken, file, type);
+
+      if (type === 'image') {
+        setImages((prev) => [...prev, response.url]);
+      } else if (type === 'video') {
+        setVideoUrl(response.url);
+      } else if (type === '3d_model') {
+        setModel3dUrl(response.url);
+      }
+
+      Alert.alert('Sucesso', 'Arquivo enviado!');
+    } catch (error: any) {
+      Alert.alert('Erro ao enviar', error.message || 'Falha ao enviar arquivo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = (): boolean => {
@@ -148,10 +216,14 @@ export default function ProductFormScreen() {
         description: formData.description.trim(),
         category: formData.category,
         subcategory: formData.subcategory || undefined,
+        filling: formData.filling || undefined,
+        is_gemstone: formData.is_gemstone || undefined,
         base_price: parseFloat(formData.base_price),
         gold_weight_grams: parseFloat(formData.gold_weight_grams),
         gold_karat: formData.gold_karat,
         stock_quantity: parseInt(formData.stock_quantity),
+        images: JSON.stringify(images),
+        model_3d_url: model3dUrl || undefined,
       };
 
       if (isEditMode && productId) {
@@ -355,6 +427,110 @@ export default function ProductFormScreen() {
           </View>
         </View>
 
+        {/* Filling (Optional) */}
+        <View style={[styles.inputGroup, { zIndex: 999 }]}>
+          <Text style={styles.label}>Preenchimento (Opcional)</Text>
+          <View style={styles.selectContainer}>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setFillingDropdownOpen(!fillingDropdownOpen)}
+              disabled={loading}
+            >
+              <Text style={[styles.selectText, !formData.filling && styles.placeholderText]}>
+                {formData.filling || 'Selecione...'}
+              </Text>
+              <Ionicons
+                name={fillingDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+            {fillingDropdownOpen && (
+              <View style={styles.dropdownList}>
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    handleInputChange('filling', '');
+                    setFillingDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, styles.placeholderText]}>Nenhum</Text>
+                  {!formData.filling && (
+                    <Ionicons name="checkmark" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+                {FILLING_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      handleInputChange('filling', option);
+                      setFillingDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{option}</Text>
+                    {formData.filling === option && (
+                      <Ionicons name="checkmark" size={20} color="#2563eb" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Gemstone (Optional) */}
+        <View style={[styles.inputGroup, { zIndex: 998 }]}>
+          <Text style={styles.label}>Tipo de Pedra (Opcional)</Text>
+          <View style={styles.selectContainer}>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setGemstoneDropdownOpen(!gemstoneDropdownOpen)}
+              disabled={loading}
+            >
+              <Text style={[styles.selectText, !formData.is_gemstone && styles.placeholderText]}>
+                {formData.is_gemstone || 'Selecione...'}
+              </Text>
+              <Ionicons
+                name={gemstoneDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+            {gemstoneDropdownOpen && (
+              <View style={styles.dropdownList}>
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    handleInputChange('is_gemstone', '');
+                    setGemstoneDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownItemText, styles.placeholderText]}>Nenhum</Text>
+                  {!formData.is_gemstone && (
+                    <Ionicons name="checkmark" size={20} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+                {GEMSTONE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      handleInputChange('is_gemstone', option);
+                      setGemstoneDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{option}</Text>
+                    {formData.is_gemstone === option && (
+                      <Ionicons name="checkmark" size={20} color="#2563eb" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Price */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>
@@ -391,7 +567,7 @@ export default function ProductFormScreen() {
             Quilate do Ouro <Text style={styles.required}>*</Text>
           </Text>
           <View style={styles.radioGroup}>
-            {['18k', '22k', '24k'].map((karat) => (
+            {['10k', '18k'].map((karat) => (
               <TouchableOpacity
                 key={karat}
                 style={[
@@ -427,6 +603,82 @@ export default function ProductFormScreen() {
             keyboardType="number-pad"
             editable={!loading}
           />
+        </View>
+
+        {/* Images Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Imagens do Produto</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('image')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="image-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>Adicionar Imagem</Text>
+          </TouchableOpacity>
+          {images.length > 0 && (
+            <View style={styles.imageGrid}>
+              {images.map((uri, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri }} style={styles.imageThumbnail} />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Video Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Vídeo do Produto (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('video')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="videocam-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>
+              {videoUrl ? 'Alterar Vídeo' : 'Adicionar Vídeo'}
+            </Text>
+          </TouchableOpacity>
+          {videoUrl && (
+            <View style={styles.fileTag}>
+              <Ionicons name="videocam" size={16} color="#16a34a" />
+              <Text style={styles.fileTagText}>Vídeo adicionado</Text>
+              <TouchableOpacity onPress={() => setVideoUrl('')}>
+                <Ionicons name="close-circle" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* 3D Model Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Modelo 3D (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('3d_model')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="cube-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>
+              {model3dUrl ? 'Alterar Modelo 3D' : 'Adicionar Modelo 3D'}
+            </Text>
+          </TouchableOpacity>
+          {model3dUrl && (
+            <View style={styles.fileTag}>
+              <Ionicons name="cube" size={16} color="#16a34a" />
+              <Text style={styles.fileTagText}>Modelo 3D adicionado</Text>
+              <TouchableOpacity onPress={() => setModel3dUrl('')}>
+                <Ionicons name="close-circle" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Info Box */}
@@ -618,6 +870,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
   },
+  placeholderText: {
+    color: '#9ca3af',
+  },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: '#eff6ff',
@@ -650,5 +905,62 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  uploadButtonText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+  },
+  imageThumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+  },
+  fileTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  fileTagText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#16a34a',
+    fontWeight: '500',
   },
 });

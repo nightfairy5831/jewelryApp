@@ -8,7 +8,6 @@ import { orderApi, type ShippingAddress } from '../services/api';
 export default function CheckoutScreen() {
   const { cart, authToken, isAuthenticated, fetchCart, fetchOrders } = useAppStore();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('credit_card');
 
   const [address, setAddress] = useState<ShippingAddress>({
     street: '',
@@ -17,6 +16,16 @@ export default function CheckoutScreen() {
     postal_code: '',
     country: 'Brazil',
   });
+
+  const fillMockData = () => {
+    setAddress({
+      street: 'Rua das Flores, 123',
+      city: 'São Paulo',
+      state: 'SP',
+      postal_code: '01310-100',
+      country: 'Brazil',
+    });
+  };
 
   // Require authentication for checkout
   if (!isAuthenticated || !authToken) {
@@ -86,22 +95,23 @@ export default function CheckoutScreen() {
 
     setLoading(true);
     try {
+      // Create order from cart
       const response = await orderApi.createOrder(authToken, {
         shipping_address: address,
-        payment_method: paymentMethod,
+        payment_method: 'credit_card',
       });
 
-      // Refresh cart and orders
-      await fetchCart();
-      await fetchOrders();
+      // Navigate to payment screen immediately
+      router.replace(`/payment/${response.order.id}`);
 
-      // Navigate to payment screen
-      router.push(`/payment/${response.order.id}`);
+      // Refresh cart and orders in background (after navigation)
+      fetchCart().catch(console.error);
+      fetchOrders().catch(console.error);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to place order');
-    } finally {
       setLoading(false);
     }
+    // Note: Don't setLoading(false) in finally - we're navigating away
   };
 
   return (
@@ -133,7 +143,16 @@ export default function CheckoutScreen() {
 
         {/* Shipping Address */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Shipping Address</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Shipping Address</Text>
+            <TouchableOpacity
+              style={styles.mockDataButton}
+              onPress={fillMockData}
+            >
+              <Ionicons name="flash" size={16} color="#3b82f6" />
+              <Text style={styles.mockDataButtonText}>Mock Data</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -162,57 +181,16 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Payment Method */}
+        {/* Payment Method - Fixed to Credit Card */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
-
-          <TouchableOpacity
-            style={[styles.paymentOption, paymentMethod === 'credit_card' && styles.paymentOptionSelected]}
-            onPress={() => setPaymentMethod('credit_card')}
-          >
-            <Ionicons
-              name={paymentMethod === 'credit_card' ? 'radio-button-on' : 'radio-button-off'}
-              size={24}
-              color={paymentMethod === 'credit_card' ? '#D4AF37' : '#666'}
-            />
+          <View style={styles.paymentInfoBox}>
+            <Ionicons name="card-outline" size={32} color="#D4AF37" />
             <View style={styles.paymentInfo}>
               <Text style={styles.paymentTitle}>Credit Card</Text>
-              <Text style={styles.paymentSubtitle}>Pay securely with your card</Text>
+              <Text style={styles.paymentSubtitle}>Processed securely via Mercado Pago</Text>
             </View>
-            <Ionicons name="card-outline" size={32} color="#666" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.paymentOption, paymentMethod === 'pix' && styles.paymentOptionSelected]}
-            onPress={() => setPaymentMethod('pix')}
-          >
-            <Ionicons
-              name={paymentMethod === 'pix' ? 'radio-button-on' : 'radio-button-off'}
-              size={24}
-              color={paymentMethod === 'pix' ? '#D4AF37' : '#666'}
-            />
-            <View style={styles.paymentInfo}>
-              <Text style={styles.paymentTitle}>PIX</Text>
-              <Text style={styles.paymentSubtitle}>Instant payment</Text>
-            </View>
-            <Ionicons name="flash-outline" size={32} color="#666" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.paymentOption, paymentMethod === 'boleto' && styles.paymentOptionSelected]}
-            onPress={() => setPaymentMethod('boleto')}
-          >
-            <Ionicons
-              name={paymentMethod === 'boleto' ? 'radio-button-on' : 'radio-button-off'}
-              size={24}
-              color={paymentMethod === 'boleto' ? '#D4AF37' : '#666'}
-            />
-            <View style={styles.paymentInfo}>
-              <Text style={styles.paymentTitle}>Boleto</Text>
-              <Text style={styles.paymentSubtitle}>Pay with bank slip</Text>
-            </View>
-            <Ionicons name="document-text-outline" size={32} color="#666" />
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* Order Total */}
@@ -297,11 +275,30 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 12,
+  },
+  mockDataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#eff6ff',
+    borderRadius: 6,
+    gap: 4,
+  },
+  mockDataButtonText: {
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   summaryCard: {
     flexDirection: 'row',
@@ -331,19 +328,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  paymentOption: {
+  paymentInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  paymentOptionSelected: {
-    borderColor: '#D4AF37',
     backgroundColor: '#fffbf0',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#D4AF37',
   },
   paymentInfo: {
     flex: 1,
@@ -448,7 +440,7 @@ const styles = StyleSheet.create({
   },
   placeOrderButton: {
     flexDirection: 'row',
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#000000',
     paddingVertical: 16,
     borderRadius: 8,
     justifyContent: 'center',

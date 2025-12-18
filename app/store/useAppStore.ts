@@ -88,7 +88,7 @@ interface AppState {
 
   // Phase 5: Shopping & Payments Actions
   fetchCart: () => Promise<void>;
-  addToCart: (productId: number, quantity?: number) => Promise<void>;
+  addToCart: (productId: number, quantity?: number, clearFirst?: boolean) => Promise<void>;
   updateCartQuantity: (itemId: number, quantity: number) => Promise<void>;
   removeFromCart: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -257,35 +257,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const products = await productApi.getAll();
 
-      // Map backend category names (Portuguese) to frontend filter IDs (English)
-      const categoryMap: Record<string, string> = {
-        'Masculino': 'male',
-        'Feminino': 'female',
-        'Formatura': 'graduation',
-        'Casamento': 'wedding',
-      };
-
-      // Map backend subcategory names (Portuguese) to frontend filter IDs (English)
-      const subcategoryMap: Record<string, string> = {
-        'Anéis': 'rings',
-        'Colares': 'necklaces',
-        'Pulseiras': 'bracelets',
-        'Medalhas': 'medals',
-        'Broches': 'pins',
-        'Alianças': 'rings',
-        'Conjuntos': 'sets',
-        'Tiaras': 'tiaras',
-      };
-
       const productsWithMedia = products.map((p) => {
-        // Map backend categories to frontend filter IDs
-        const mappedCategory = categoryMap[p.category] || p.category?.toLowerCase() || 'male';
-        const mappedSubcategory = subcategoryMap[p.subcategory] || p.subcategory?.toLowerCase() || 'rings';
-
         return {
           ...p,
-          category: mappedCategory,
-          subcategory: mappedSubcategory,
           images: p.images?.slice(0, 3) || [],
           videos: p.videos?.length > 0 ? p.videos : [],
         };
@@ -298,6 +272,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         error: null
       });
     } catch (error) {
+      console.error('Failed to load products:', error);
       set({
         isLoading: false,
         error: 'Failed to load products. Please check your connection.'
@@ -355,15 +330,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newSelectedFilters = [...state.selectedFilters, filterId];
         const newFilterSet = filterTree[filterId];
 
-        // Filter products by parent category
+        // Filter products by parent category (exact match)
         const filtered = state.products.filter((product) => {
-          return product.category?.toLowerCase() === filterId.toLowerCase();
+          return product.category === filterId;
         });
 
         return {
           selectedFilters: newSelectedFilters,
           currentFilterSet: newFilterSet,
-          filteredProducts: filtered.length > 0 ? filtered : state.products,
+          filteredProducts: filtered,
           currentProductIndex: 0,
         };
       } else {
@@ -371,13 +346,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         const parentCategory = state.selectedFilters[state.selectedFilters.length - 1];
 
         const filtered = state.products.filter((product) => {
-          const categoryMatch = product.category?.toLowerCase() === parentCategory?.toLowerCase();
-          const subcategoryMatch = product.subcategory?.toLowerCase() === filterId.toLowerCase();
+          const categoryMatch = product.category === parentCategory;
+          const subcategoryMatch = product.subcategory === filterId;
           return categoryMatch && subcategoryMatch;
         });
 
         return {
-          filteredProducts: filtered.length > 0 ? filtered : state.products,
+          filteredProducts: filtered,
           currentProductIndex: 0,
         };
       }
@@ -426,14 +401,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addToCart: async (productId, quantity = 1) => {
+  addToCart: async (productId, quantity = 1, clearFirst = false) => {
     const { authToken } = get();
     if (!authToken) throw new Error('Not authenticated');
 
     try {
+      // Clear cart first if requested (for buy-now flow)
+      if (clearFirst) {
+        await get().clearCart();
+      }
+
       await cartApi.addItem(authToken, productId, quantity);
       await get().fetchCart(); // Refresh cart
     } catch (error: any) {
+      // If session expired, clear auth state
+      if (error.message?.includes('Session expired')) {
+        set({
+          currentUser: null,
+          authToken: null,
+          isAuthenticated: false,
+        });
+      }
       throw new Error(error.message || 'Failed to add to cart');
     }
   },

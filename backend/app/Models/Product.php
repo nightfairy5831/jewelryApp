@@ -18,6 +18,8 @@ class Product extends Model
         'initial_gold_price',
         'category',
         'subcategory',
+        'filling',
+        'is_gemstone',
         'images',
         'videos',
         'model_3d_url',

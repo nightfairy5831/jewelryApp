@@ -29,7 +29,9 @@ class DatabaseSeeder extends Seeder
             GoldPriceSeeder::class,
             // 4. Products (depends on sellers, gold prices, categories)
             ProductSeeder::class,
-            // 5. Messages (depends on users)
+            // 5. Reviews (depends on products and buyers)
+            ReviewSeeder::class,
+            // 6. Messages (depends on users)
             MessageSeeder::class,
         ]);
 

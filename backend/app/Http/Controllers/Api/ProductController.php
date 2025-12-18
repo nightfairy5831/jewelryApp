@@ -51,9 +51,11 @@ class ProductController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'required|string',
-            'category' => 'required|string',
-            'subcategory' => 'nullable|string',
-            'gold_weight_grams' => 'required|numeric|min:0.001',
+            'category' => 'required|in:Male,Female,Wedding Rings,Other',
+            'subcategory' => 'required|string',
+            'filling' => 'nullable|in:Solid,Hollow,Defense',
+            'is_gemstone' => 'nullable|in:Synthetic,Natural,Without Stones',
+            'gold_weight_grams' => 'required|numeric|min:0',
             'gold_karat' => 'required|in:18k,22k,24k',
             'base_price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
@@ -63,6 +65,20 @@ class ProductController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Validate subcategory based on category
+        $validSubcategories = [
+            'Male' => ['Chains', 'Rings', 'Earrings and Pendants'],
+            'Female' => ['Chains', 'Rings', 'Earrings and Pendants'],
+            'Wedding Rings' => ['Wedding Anniversary', 'Engagement', 'Marriage'],
+            'Other' => ['Perfumes', 'Watches', 'Other'],
+        ];
+
+        if (isset($validSubcategories[$request->category])) {
+            if (!in_array($request->subcategory, $validSubcategories[$request->category])) {
+                return response()->json(['errors' => ['subcategory' => ['Invalid subcategory for the selected category.']]], 422);
+            }
         }
 
         // Get current gold price
@@ -122,9 +138,11 @@ class ProductController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
-            'category' => 'sometimes|string',
-            'subcategory' => 'nullable|string',
-            'gold_weight_grams' => 'sometimes|numeric|min:0.001',
+            'category' => 'sometimes|in:Male,Female,Wedding Rings,Other',
+            'subcategory' => 'sometimes|string',
+            'filling' => 'nullable|in:Solid,Hollow,Defense',
+            'is_gemstone' => 'nullable|in:Synthetic,Natural,Without Stones',
+            'gold_weight_grams' => 'sometimes|numeric|min:0',
             'gold_karat' => 'sometimes|in:18k,22k,24k',
             'base_price' => 'sometimes|numeric|min:0',
             'stock_quantity' => 'sometimes|integer|min:0',
@@ -134,6 +152,22 @@ class ProductController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Validate subcategory based on category
+        if ($request->has('category') && $request->has('subcategory')) {
+            $validSubcategories = [
+                'Male' => ['Chains', 'Rings', 'Earrings and Pendants'],
+                'Female' => ['Chains', 'Rings', 'Earrings and Pendants'],
+                'Wedding Rings' => ['Wedding Anniversary', 'Engagement', 'Marriage'],
+                'Other' => ['Perfumes', 'Watches', 'Other'],
+            ];
+
+            if (isset($validSubcategories[$request->category])) {
+                if (!in_array($request->subcategory, $validSubcategories[$request->category])) {
+                    return response()->json(['errors' => ['subcategory' => ['Invalid subcategory for the selected category.']]], 422);
+                }
+            }
         }
 
         $updateData = $request->only([

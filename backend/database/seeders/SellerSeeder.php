@@ -36,7 +36,7 @@ class SellerSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'seller',
                 'seller_status' => 'approved',
-                'seller_approved' => true,  // Important: must be true for approved sellers
+                'seller_approved' => true, 
                 'seller_approved_at' => now(),
                 'is_active' => true,
             ]);

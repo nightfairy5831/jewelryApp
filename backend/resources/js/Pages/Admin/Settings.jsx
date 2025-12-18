@@ -100,35 +100,35 @@ export default function Settings() {
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">24k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_24k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_24k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">22k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_22k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_22k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">21k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_21k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_21k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">20k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_20k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_20k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">18k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_18k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_18k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">16k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_16k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_16k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">14k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_14k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_14k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                             <div className="p-3 bg-green-50 rounded">
                                                 <span className="text-xs text-gray-600">10k</span>
-                                                <p className="text-lg font-bold text-green-700">${goldResult.price_gram_10k?.toFixed(2) || 'N/A'}</p>
+                                                <p className="text-lg font-bold text-green-700">R$ {goldResult.price_gram_10k?.toFixed(2) || 'N/A'}</p>
                                             </div>
                                         </div>
 

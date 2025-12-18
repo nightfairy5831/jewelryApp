@@ -13,18 +13,13 @@ class BuyerSeeder extends Seeder
         $buyers = [
             [
                 'name' => 'Carlos Oliveira',
-                'email' => 'buyer1@test.com',
+                'email' => 'jastinmax888@gmail.com',
                 'phone' => '(11) 91234-5678',
             ],
             [
                 'name' => 'Patricia Lima',
-                'email' => 'buyer2@test.com',
+                'email' => 'nightfairy5831@gmail.com',
                 'phone' => '(21) 98765-4321',
-            ],
-            [
-                'name' => 'Roberto Fernandes',
-                'email' => 'buyer3@test.com',
-                'phone' => '(31) 99876-5432',
             ],
         ];
 

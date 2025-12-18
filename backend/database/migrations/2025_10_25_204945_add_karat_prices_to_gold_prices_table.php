@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('price_gram_16k', 10, 2)->nullable()->after('price_gram_18k');
             $table->decimal('price_gram_14k', 10, 2)->nullable()->after('price_gram_16k');
             $table->decimal('price_gram_10k', 10, 2)->nullable()->after('price_gram_14k');
-            $table->string('currency', 10)->default('USD')->after('source');
+            $table->string('currency', 10)->default('BRL')->after('source');
         });
     }
 

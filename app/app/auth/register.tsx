@@ -404,5 +404,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 32,
     paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
 });

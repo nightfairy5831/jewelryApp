@@ -182,12 +182,22 @@ async function apiCall<T>(
 
 // Product API
 export const productApi = {
-  // Get all products (public endpoint)
+  // Get all products (public endpoint) - Fetches ALL pages
   getAll: async (): Promise<Product[]> => {
-    const response = await apiCall<PaginatedResponse<any>>('/products');
+    const allProducts: any[] = [];
+    let currentPage = 1;
+    let lastPage = 1;
+
+    // Fetch all pages
+    do {
+      const response = await apiCall<PaginatedResponse<any>>(`/products?page=${currentPage}`);
+      allProducts.push(...response.data);
+      lastPage = response.last_page;
+      currentPage++;
+    } while (currentPage <= lastPage);
 
     // Transform Laravel response to match frontend Product interface
-    return response.data.map(transformProduct);
+    return allProducts.map(transformProduct);
   },
 
   // Get single product (public endpoint)
@@ -273,9 +283,9 @@ function transformProduct(apiProduct: any): Product {
       free: true, // Default for now
       days: 5,
     },
-    // 3D Model support (Phase 4)
-    model3dUrl: apiProduct.model_3d_url,
-    model3dType: apiProduct.model_3d_type,
+    // 3D Model support (Phase 4) - Temporary fallback for all products
+    model_3d_url: apiProduct.model_3d_url || 'https://jewelry-backend-main-wj7bry.laravel.cloud/jewelry.glb',
+    model_3d_type: apiProduct.model_3d_type || 'glb',
     videos: videos,
     // Seller info
     seller: apiProduct.seller ? {
@@ -783,6 +793,62 @@ export const sellerApi = {
   },
 };
 
+// Gold Price API
+export interface GoldPriceData {
+  price: number;
+  price_24k: number;
+  price_22k: number;
+  price_21k: number;
+  price_20k: number;
+  price_18k: number;
+  price_16k: number;
+  price_14k: number;
+  price_10k: number;
+  source: string;
+  updated_at: string;
+}
+
+export const goldPriceApi = {
+  getCurrentPrice: async (): Promise<{ success: boolean; data: GoldPriceData }> => {
+    return await apiCall<{ success: boolean; data: GoldPriceData }>('/gold-price/current');
+  },
+};
+
+export const uploadApi = {
+  uploadFile: async (token: string, file: { uri: string; type: string; name: string }, fileType: 'image' | 'video' | '3d_model'): Promise<{ url: string; key: string }> => {
+    const formData = new FormData();
+    formData.append('file', file as any);
+    formData.append('type', fileType);
+
+    const response = await fetch(`${API_BASE_URL}/upload/r2`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let error;
+      try {
+        error = JSON.parse(text);
+      } catch {
+        throw new Error(`Upload failed: ${response.status} - ${text.substring(0, 100)}`);
+      }
+      throw new Error(error.message || 'Upload failed');
+    }
+
+    return await response.json();
+  },
+  deleteFile: async (token: string, key: string): Promise<void> => {
+    await apiCall(`/upload/r2/${encodeURIComponent(key)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  },
+};
+
 export default {
   productApi,
   authApi,
@@ -792,4 +858,6 @@ export default {
   paymentApi,
   wishlistApi,
   sellerApi,
+  goldPriceApi,
+  uploadApi,
 };
