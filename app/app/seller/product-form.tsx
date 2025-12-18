@@ -8,12 +8,14 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppStore } from '../../store/useAppStore';
-import { productApi, sellerApi } from '../../services/api';
+import { productApi, sellerApi, uploadApi } from '../../services/api';
 
 // Categories and Subcategories
 const CATEGORIES = ['Male', 'Female', 'Wedding Rings', 'Other'];
@@ -47,6 +49,11 @@ export default function ProductFormScreen() {
     gold_karat: '18k',
     stock_quantity: '1',
   });
+
+  const [images, setImages] = useState<string[]>([]);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [model3dUrl, setModel3dUrl] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(isEditMode);
@@ -84,6 +91,8 @@ export default function ProductFormScreen() {
           gold_karat: product.gold_karat || '18k',
           stock_quantity: product.stock_quantity?.toString() || '1',
         });
+        setImages(product.images ? JSON.parse(product.images) : []);
+        setModel3dUrl(product.model_3d_url || '');
       } else {
         Alert.alert('Erro', 'Produto não encontrado');
         router.back();
@@ -99,6 +108,56 @@ export default function ProductFormScreen() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const pickFile = async (fileType: 'image' | 'video' | '3d_model') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadFile(result.assets[0], fileType);
+    }
+  };
+
+  const uploadFile = async (asset: any, type: 'image' | 'video' | '3d_model') => {
+    if (!authToken) return;
+
+    setUploading(true);
+    try {
+      const file = {
+        uri: asset.uri,
+        type: asset.mimeType || 'application/octet-stream',
+        name: asset.name || `file.${asset.uri.split('.').pop()}`,
+      };
+
+      const response = await uploadApi.uploadFile(authToken, file, type);
+
+      if (type === 'image') {
+        setImages((prev) => [...prev, response.url]);
+      } else if (type === 'video') {
+        setVideoUrl(response.url);
+      } else if (type === '3d_model') {
+        setModel3dUrl(response.url);
+      }
+
+      Alert.alert('Sucesso', 'Arquivo enviado!');
+    } catch (error: any) {
+      Alert.alert('Erro ao enviar', error.message || 'Falha ao enviar arquivo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = (): boolean => {
@@ -163,6 +222,8 @@ export default function ProductFormScreen() {
         gold_weight_grams: parseFloat(formData.gold_weight_grams),
         gold_karat: formData.gold_karat,
         stock_quantity: parseInt(formData.stock_quantity),
+        images: JSON.stringify(images),
+        model_3d_url: model3dUrl || undefined,
       };
 
       if (isEditMode && productId) {
@@ -544,6 +605,82 @@ export default function ProductFormScreen() {
           />
         </View>
 
+        {/* Images Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Imagens do Produto</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('image')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="image-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>Adicionar Imagem</Text>
+          </TouchableOpacity>
+          {images.length > 0 && (
+            <View style={styles.imageGrid}>
+              {images.map((uri, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri }} style={styles.imageThumbnail} />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={24} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Video Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Vídeo do Produto (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('video')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="videocam-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>
+              {videoUrl ? 'Alterar Vídeo' : 'Adicionar Vídeo'}
+            </Text>
+          </TouchableOpacity>
+          {videoUrl && (
+            <View style={styles.fileTag}>
+              <Ionicons name="videocam" size={16} color="#16a34a" />
+              <Text style={styles.fileTagText}>Vídeo adicionado</Text>
+              <TouchableOpacity onPress={() => setVideoUrl('')}>
+                <Ionicons name="close-circle" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* 3D Model Upload */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Modelo 3D (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => pickFile('3d_model')}
+            disabled={uploading || loading}
+          >
+            <Ionicons name="cube-outline" size={20} color="#2563eb" />
+            <Text style={styles.uploadButtonText}>
+              {model3dUrl ? 'Alterar Modelo 3D' : 'Adicionar Modelo 3D'}
+            </Text>
+          </TouchableOpacity>
+          {model3dUrl && (
+            <View style={styles.fileTag}>
+              <Ionicons name="cube" size={16} color="#16a34a" />
+              <Text style={styles.fileTagText}>Modelo 3D adicionado</Text>
+              <TouchableOpacity onPress={() => setModel3dUrl('')}>
+                <Ionicons name="close-circle" size={20} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#2563eb" />
@@ -768,5 +905,62 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  uploadButtonText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  imageContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+  },
+  imageThumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+  },
+  fileTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  fileTagText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#16a34a',
+    fontWeight: '500',
   },
 });

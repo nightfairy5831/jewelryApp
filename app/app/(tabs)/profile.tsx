@@ -62,8 +62,12 @@ export default function PerfilScreen() {
           text: 'Sair',
           style: 'destructive',
           onPress: async () => {
-            await logout();
-            router.replace('/auth/login');
+            try {
+              await logout();
+              router.replace('/(auth)/login');
+            } catch (error) {
+              console.error('Logout failed:', error);
+            }
           },
         },
       ]

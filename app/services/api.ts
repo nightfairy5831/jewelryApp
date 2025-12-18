@@ -814,6 +814,41 @@ export const goldPriceApi = {
   },
 };
 
+export const uploadApi = {
+  uploadFile: async (token: string, file: { uri: string; type: string; name: string }, fileType: 'image' | 'video' | '3d_model'): Promise<{ url: string; key: string }> => {
+    const formData = new FormData();
+    formData.append('file', file as any);
+    formData.append('type', fileType);
+
+    const response = await fetch(`${API_BASE_URL}/upload/r2`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let error;
+      try {
+        error = JSON.parse(text);
+      } catch {
+        throw new Error(`Upload failed: ${response.status} - ${text.substring(0, 100)}`);
+      }
+      throw new Error(error.message || 'Upload failed');
+    }
+
+    return await response.json();
+  },
+  deleteFile: async (token: string, key: string): Promise<void> => {
+    await apiCall(`/upload/r2/${encodeURIComponent(key)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+  },
+};
+
 export default {
   productApi,
   authApi,
@@ -824,4 +859,5 @@ export default {
   wishlistApi,
   sellerApi,
   goldPriceApi,
+  uploadApi,
 };
