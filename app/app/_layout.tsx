@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAppStore } from '../store/useAppStore';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 import '../global.css';
 
 function SplashScreen() {
@@ -23,8 +24,15 @@ function SplashScreen() {
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
-  const { isAuthenticated, checkAuth, currentUser } = useAppStore();
+  const { authToken, checkAuth } = useAppStore();
   const [isAppReady, setIsAppReady] = useState(false);
+
+  // Simplified: isAuthenticated = token exists
+  const isAuthenticated = !!authToken;
+
+  // Fetch user data only when authenticated (for role-based routing)
+  // NOTE: This runs in parallel, doesn't block app initialization
+  const { user: currentUser } = useCurrentUser();
 
   useEffect(() => {
     // Check authentication status on mount
@@ -34,10 +42,7 @@ export default function RootLayout() {
       } catch (error) {
         console.error('Auth check failed:', error);
       } finally {
-        // Minimal splash time - auth verification happens in background
-        setTimeout(() => {
-          setIsAppReady(true);
-        }, 300);
+        setIsAppReady(true);
       }
     };
 
@@ -51,22 +56,23 @@ export default function RootLayout() {
     const inTabsGroup = segments[0] === '(tabs)';
 
     // Allow guest browsing - only redirect authenticated users from auth pages
-    if (isAuthenticated && inAuthGroup && currentUser) {
-      // Only redirect if we have user data loaded
-      // Redirect based on user role after login
-      if (currentUser.role === 'seller') {
+    if (isAuthenticated && inAuthGroup) {
+      // Redirect to main app based on role
+      if (currentUser?.role === 'seller') {
         router.replace('/(tabs)/seller-dashboard');
       } else {
-        router.replace('/(tabs)'); // Buyer goes to product catalog
+        router.replace('/(tabs)'); // Explicitly go to index for buyers/guests
       }
     } else if (isAuthenticated && inTabsGroup && currentUser) {
-      // Protect routes based on role
+      // Only do role-based routing if we have user data AND user is authenticated
       const currentRoute = segments[1];
 
       if (currentUser.role === 'seller') {
         // Seller trying to access buyer's product catalog
-        if (currentRoute === 'index' || !currentRoute) {
-          router.replace('/(tabs)/seller-dashboard');
+        if (!currentRoute || currentRoute === 'seller-dashboard') {
+          // Keep seller on dashboard, no redirect needed
+        } else {
+          // Seller navigated to buyer route, allow it
         }
       } else if (currentUser.role === 'buyer' || currentUser.role === 'admin') {
         // Buyer/Admin trying to access seller dashboard
@@ -74,6 +80,9 @@ export default function RootLayout() {
           router.replace('/(tabs)');
         }
       }
+    } else if (!isAuthenticated && inTabsGroup && segments[1] === 'seller-dashboard') {
+      // If user is not authenticated but on seller-dashboard, redirect to main catalog
+      router.replace('/(tabs)');
     }
   }, [isAuthenticated, currentUser, segments, isAppReady]);
 

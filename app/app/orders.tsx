@@ -6,7 +6,8 @@ import { router } from 'expo-router';
 import type { Order } from '../services/api';
 
 export default function OrdersScreen() {
-  const { orders, isAuthenticated, fetchOrders } = useAppStore();
+  const { orders, authToken, fetchOrders } = useAppStore();
+  const isAuthenticated = !!authToken;
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {

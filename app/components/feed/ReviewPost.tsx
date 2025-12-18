@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import type { Review } from '../../data/reviews';
 import { Card, Avatar, StarRating } from '../ui';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 interface ReviewPostProps {
   review: Review;
@@ -14,11 +15,12 @@ const IMAGE_SIZE = width - 32; // Account for horizontal padding
 
 export default function ReviewPost({ review }: ReviewPostProps) {
   const router = useRouter();
-  const { currentUser, toggleLike, toggleFollow } = useAppStore();
+  const { toggleLike, toggleFollow } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
 
-  const isLiked = review.likes?.includes(currentUser.id) || false;
-  const isFollowing = currentUser.following?.includes(review.userId) || false;
-  const isOwnReview = review.userId === currentUser.id;
+  const isLiked = review.likes?.includes(currentUser?.id || '') || false;
+  const isFollowing = currentUser?.following?.includes(review.userId) || false;
+  const isOwnReview = review.userId === currentUser?.id;
 
   const handleLike = () => {
     toggleLike(review.id);

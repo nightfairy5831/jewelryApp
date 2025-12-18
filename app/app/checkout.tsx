@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { orderApi, type ShippingAddress } from '../services/api';
 
 export default function CheckoutScreen() {
-  const { cart, authToken, isAuthenticated, fetchCart, fetchOrders } = useAppStore();
+  const { cart, authToken, fetchCart, fetchOrders } = useAppStore();
   const [loading, setLoading] = useState(false);
 
   const [address, setAddress] = useState<ShippingAddress>({
@@ -28,6 +28,7 @@ export default function CheckoutScreen() {
   };
 
   // Require authentication for checkout
+  const isAuthenticated = !!authToken;
   if (!isAuthenticated || !authToken) {
     return (
       <View style={styles.container}>

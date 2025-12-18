@@ -8,11 +8,13 @@ export default function CartScreen() {
   const {
     cart,
     cartItemsCount,
-    isAuthenticated,
+    authToken,
     fetchCart,
     removeFromCart,
     updateCartQuantity,
   } = useAppStore();
+
+  const isAuthenticated = !!authToken;
 
   useEffect(() => {
     if (isAuthenticated) {

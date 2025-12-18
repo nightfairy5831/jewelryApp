@@ -12,14 +12,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { router, useLocalSearchParams } from 'expo-router';
 import { messageApi, QAMessage } from '../../services/api';
 
 export default function Forum() {
   const { sellerId, sellerName } = useLocalSearchParams<{ sellerId: string; sellerName: string }>();
-  const { currentUser, authToken } = useAppStore();
+  const { authToken } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
   const [messages, setMessages] = useState<QAMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showNewQuestion, setShowNewQuestion] = useState(false);
   const [newQuestionText, setNewQuestionText] = useState('');
   const [answerText, setAnswerText] = useState('');
@@ -29,19 +31,25 @@ export default function Forum() {
   const decodedSellerName = sellerName ? decodeURIComponent(sellerName) : 'Vendedor';
 
   useEffect(() => {
-    if (sellerIdNum && authToken) {
+    // Load messages if sellerId is provided OR if user is a seller accessing their own forum
+    if (sellerIdNum || (currentUser?.role === 'seller' && authToken)) {
       loadMessages();
-    } else {
-      setLoading(false);
     }
-  }, [sellerIdNum, authToken]);
+  }, [sellerIdNum, currentUser, authToken]);
 
   const loadMessages = async () => {
-    if (!authToken || !sellerIdNum) return;
     try {
       setLoading(true);
-      const data = await messageApi.getBySeller(authToken, sellerIdNum);
-      setMessages(data);
+
+      // If no sellerId is provided and user is a seller, show their own messages
+      if (!sellerIdNum && currentUser?.role === 'seller' && authToken) {
+        const data = await messageApi.getMyMessages(authToken);
+        setMessages(data);
+      } else if (sellerIdNum) {
+        // Show messages for a specific seller
+        const data = await messageApi.getBySeller(sellerIdNum, authToken || undefined);
+        setMessages(data);
+      }
     } catch (error) {
       console.error('Failed to load messages:', error);
     } finally {
@@ -50,7 +58,12 @@ export default function Forum() {
   };
 
   const handleBack = () => {
-    router.back();
+    // Always redirect based on user role instead of using browser history
+    if (currentUser?.role === 'seller') {
+      router.replace('/(tabs)/seller-dashboard');
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const handleCreateQuestion = async () => {
@@ -75,7 +88,14 @@ export default function Forum() {
   };
 
   const handleAnswer = async (messageId: number) => {
-    if (!answerText.trim() || !authToken) return;
+    if (!authToken) {
+      Alert.alert('Login necessário', 'Faça login para responder', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Login', onPress: () => router.push('/auth/login') },
+      ]);
+      return;
+    }
+    if (!answerText.trim()) return;
     try {
       await messageApi.answerQuestion(authToken, messageId, answerText);
       setAnswerText('');
@@ -99,9 +119,10 @@ export default function Forum() {
     setShowNewQuestion(true);
   };
 
-  const isCurrentUserSeller = currentUser?.id === sellerIdNum;
+  const isCurrentUserSeller = sellerIdNum ? currentUser?.id === sellerIdNum : currentUser?.role === 'seller';
 
-  if (!sellerIdNum) {
+  // Show error only if no sellerId AND user is not a seller
+  if (!sellerIdNum && currentUser?.role !== 'seller') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
@@ -113,8 +134,8 @@ export default function Forum() {
         </View>
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={64} color="#d1d5db" />
-          <Text style={styles.emptyStateTitle}>Vendedor não encontrado</Text>
-          <Text style={styles.emptyStateText}>Volte para a página do produto</Text>
+          <Text style={styles.emptyStateTitle}>Acesso negado</Text>
+          <Text style={styles.emptyStateText}>Esta página é para vendedores ou perguntas de produtos específicos</Text>
         </View>
       </SafeAreaView>
     );
@@ -127,7 +148,9 @@ export default function Forum() {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perguntas para {decodedSellerName}</Text>
+        <Text style={styles.headerTitle}>
+          {sellerIdNum ? `Perguntas para ${decodedSellerName}` : 'Minhas Perguntas'}
+        </Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -389,12 +412,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   answerInput: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#ffffff',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     minHeight: 80,
     textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   answerActions: {
     flexDirection: 'row',

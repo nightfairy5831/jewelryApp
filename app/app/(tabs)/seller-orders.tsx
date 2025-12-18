@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi } from '../../services/api';
 
 interface OrderItem {
@@ -49,7 +50,8 @@ interface Order {
 
 export default function SellerOrdersScreen() {
   const router = useRouter();
-  const { authToken, currentUser } = useAppStore();
+  const { authToken } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);

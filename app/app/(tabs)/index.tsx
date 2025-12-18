@@ -2,11 +2,11 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppStore } from '../../store/useAppStore';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
 import Model3DViewer from '../../components/product/Model3DViewer';
-import { API_CONFIG } from '../../config/api';
 
 const GOLDEN_RATIO = 0.618;
 
@@ -28,11 +28,12 @@ export default function CatalogScreen() {
     loadProducts,
     setSelectedMediaIndex,
     addToCart,
-    isAuthenticated,
     authToken,
     cartItemsCount,
-    currentUser,
   } = useAppStore();
+
+  // Fetch user data from token
+  const { user: currentUser, isAuthenticated } = useCurrentUser();
 
   const [addingToCart, setAddingToCart] = useState(false);
 
@@ -101,8 +102,6 @@ export default function CatalogScreen() {
   };
 
   const handleAddToCart = async () => {
-    console.log('🔍 Auth state:', { isAuthenticated, hasToken: !!authToken });
-
     if (!isAuthenticated || !authToken) {
       Alert.alert('Login Necessário', 'Por favor, faça login para adicionar produtos ao carrinho', [
         { text: 'Cancelar', style: 'cancel' },
@@ -137,8 +136,6 @@ export default function CatalogScreen() {
   };
 
   const handleBuyNow = async () => {
-    console.log('🔍 Auth state (Buy Now):', { isAuthenticated, hasToken: !!authToken });
-
     if (!isAuthenticated || !authToken) {
       Alert.alert('Login Necessário', 'Por favor, faça login para continuar', [
         { text: 'Cancelar', style: 'cancel' },

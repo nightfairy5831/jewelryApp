@@ -3,6 +3,7 @@ import { View, TouchableOpacity, StyleSheet, Animated, Alert } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppStore } from '../store/useAppStore';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 interface FABMenuProps {
   mode?: 'main' | 'forum'; // main shows forum+logout, forum shows back+logout
@@ -10,7 +11,8 @@ interface FABMenuProps {
 
 export default function FABMenu({ mode = 'main' }: FABMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { logout, currentUser } = useAppStore();
+  const { logout } = useAppStore();
+  const { user: currentUser } = useCurrentUser();
 
   const handleToggle = () => {
     setIsOpen(!isOpen);
@@ -25,7 +27,8 @@ export default function FABMenu({ mode = 'main' }: FABMenuProps) {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          router.replace('/auth/login');
+          // Explicitly navigate to index to avoid staying on seller-dashboard
+          router.replace('/(tabs)');
         },
       },
     ]);
