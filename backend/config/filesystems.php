@@ -69,8 +69,13 @@ return [
             'endpoint' => env('R2_ENDPOINT'),
             'url' => env('R2_PUBLIC_URL'),
             'use_path_style_endpoint' => false,
-            'throw' => false,
-            'report' => false,
+            'throw' => true,
+            'report' => true,
+            'visibility' => 'public', // R2 bucket-level public access
+            'options' => [
+                // Don't send ACL headers - R2 doesn't support them
+                'ACL' => null,
+            ],
         ],
 
     ],

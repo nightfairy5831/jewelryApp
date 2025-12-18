@@ -10,15 +10,21 @@ use Illuminate\Support\Str;
 class UploadController extends Controller
 {
     private const MAX_FILE_SIZES = [
-        'image' => 50 * 1024 * 1024,      // 50MB
-        'video' => 200 * 1024 * 1024,     // 200MB
-        '3d_model' => 100 * 1024 * 1024,  // 100MB
+        'image' => 10 * 1024 * 1024,      // 10MB
+        'video' => 15 * 1024 * 1024,      // 15MB
+        '3d_model' => 20 * 1024 * 1024,   // 20MB
     ];
 
     private const ALLOWED_MIMES = [
         'image' => ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
-        'video' => ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'],
-        '3d_model' => ['model/gltf-binary', 'model/gltf+json', 'model/obj', 'application/octet-stream'],
+        'video' => ['video/mp4', 'video/quicktime', 'video/webm'],
+        '3d_model' => ['model/gltf-binary', 'application/octet-stream'], // GLB files only for now
+    ];
+
+    private const ALLOWED_EXTENSIONS = [
+        'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        'video' => ['mp4', 'mov', 'webm'],
+        '3d_model' => ['glb'], // GLB only - supported by Model3DViewer
     ];
 
     /**
@@ -26,55 +32,94 @@ class UploadController extends Controller
      */
     public function upload(Request $request)
     {
-        $request->validate([
-            'file' => 'required|file',
-            'type' => 'required|in:image,video,3d_model',
-        ]);
+        try {
+            $request->validate([
+                'file' => 'required|file',
+                'type' => 'required|in:image,video,3d_model',
+            ]);
 
-        $file = $request->file('file');
-        $type = $request->input('type');
+            $file = $request->file('file');
+            $type = $request->input('type');
 
-        // Validate file size
-        if ($file->getSize() > self::MAX_FILE_SIZES[$type]) {
+            // Validate file size
+            if ($file->getSize() > self::MAX_FILE_SIZES[$type]) {
+                return response()->json([
+                    'message' => 'File size exceeds maximum allowed size',
+                    'max_size' => $this->formatBytes(self::MAX_FILE_SIZES[$type]),
+                ], 413);
+            }
+
+            // Validate MIME type
+            if (!in_array($file->getMimeType(), self::ALLOWED_MIMES[$type])) {
+                return response()->json([
+                    'message' => 'Invalid file type',
+                    'allowed_types' => self::ALLOWED_MIMES[$type],
+                    'received_type' => $file->getMimeType(),
+                ], 422);
+            }
+
+            // Generate unique filename
+            $extension = $file->getClientOriginalExtension();
+
+            // If no extension, derive from MIME type
+            if (!$extension) {
+                $extension = match($file->getMimeType()) {
+                    'image/jpeg', 'image/jpg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    'image/webp' => 'webp',
+                    'video/mp4' => 'mp4',
+                    'video/quicktime' => 'mov',
+                    'video/webm' => 'webm',
+                    'model/gltf-binary' => 'glb',
+                    default => 'bin',
+                };
+            }
+
+            // Validate extension against allowed list
+            if (!in_array(strtolower($extension), self::ALLOWED_EXTENSIONS[$type])) {
+                return response()->json([
+                    'message' => 'Invalid file extension',
+                    'allowed_extensions' => self::ALLOWED_EXTENSIONS[$type],
+                    'received_extension' => $extension,
+                ], 422);
+            }
+
+            $filename = Str::uuid() . '.' . $extension;
+
+            $directory = match($type) {
+                'image' => 'image',
+                'video' => 'video',
+                '3d_model' => '3d',
+            };
+
+            $path = "{$directory}/{$filename}";
+
+            try {
+                $fileContent = file_get_contents($file->getRealPath());
+                $uploaded = Storage::disk('r2')->put($path, $fileContent);
+
+                if (!$uploaded) {
+                    return response()->json(['message' => 'Upload to R2 failed'], 500);
+                }
+
+                $url = Storage::disk('r2')->url($path);
+            } catch (\Exception $uploadException) {
+                return response()->json([
+                    'message' => 'R2 upload error: ' . $uploadException->getMessage()
+                ], 500);
+            }
+
             return response()->json([
-                'message' => 'File size exceeds maximum allowed size',
-                'max_size' => $this->formatBytes(self::MAX_FILE_SIZES[$type]),
-            ], 413);
-        }
-
-        // Validate MIME type
-        if (!in_array($file->getMimeType(), self::ALLOWED_MIMES[$type])) {
+                'url' => $url,
+                'key' => $path,
+                'type' => $type,
+            ], 201);
+        } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Invalid file type',
-                'allowed_types' => self::ALLOWED_MIMES[$type],
-            ], 422);
+                'message' => 'Upload failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Generate unique filename
-        $extension = $file->getClientOriginalExtension();
-        $filename = Str::uuid() . '.' . $extension;
-
-        // Map type to directory name
-        $directory = match($type) {
-            'image' => 'image',
-            'video' => 'video',
-            '3d_model' => '3d',
-        };
-
-        $path = "{$directory}/{$filename}";
-
-        // Upload to R2
-        $uploaded = Storage::disk('r2')->put($path, file_get_contents($file->getRealPath()), 'public');
-
-        if (!$uploaded) {
-            return response()->json(['message' => 'Upload failed'], 500);
-        }
-
-        return response()->json([
-            'url' => Storage::disk('r2')->url($path),
-            'key' => $path,
-            'type' => $type,
-        ], 201);
     }
 
     /**
