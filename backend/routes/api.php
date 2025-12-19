@@ -31,6 +31,9 @@ Route::get('/gold-price/current', [GoldPriceController::class, 'getCurrentPrice'
 // Mercado Pago webhook (public route - no auth required)
 Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
 
+// Public Q&A messages (anyone can view)
+Route::get('/messages', [MessageController::class, 'index']);
+
 // Protected routes (require JWT authentication)
 Route::middleware('auth:api')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -45,8 +48,8 @@ Route::middleware('auth:api')->group(function () {
     // Reviews (buyer only)
     Route::post('/products/{productId}/reviews', [ReviewController::class, 'store']);
 
-    // Q&A Messages
-    Route::get('/messages', [MessageController::class, 'index']);
+    // Q&A Messages (protected)
+    Route::get('/messages/my-questions', [MessageController::class, 'myQuestions']);
     Route::post('/messages', [MessageController::class, 'store']);
     Route::post('/messages/{id}/answer', [MessageController::class, 'answer']);
     Route::delete('/messages/{id}', [MessageController::class, 'destroy']);

@@ -8,6 +8,30 @@ use Illuminate\Http\Request;
 
 class MessageController extends Controller
 {
+    // Get all Q&A messages for the current user (when they are the seller)
+    public function myQuestions(Request $request)
+    {
+        $messages = Message::with(['fromUser', 'toUser'])
+            ->where('to_user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($message) {
+                return [
+                    'id' => $message->id,
+                    'from_user_id' => $message->from_user_id,
+                    'from_user_name' => $message->fromUser->name,
+                    'to_user_id' => $message->to_user_id,
+                    'to_user_name' => $message->toUser->name,
+                    'question' => $message->question,
+                    'answer' => $message->answer,
+                    'answered_at' => $message->answered_at?->diffForHumans(),
+                    'created_at' => $message->created_at->diffForHumans(),
+                ];
+            });
+
+        return response()->json($messages);
+    }
+
     // Get all Q&A messages for a specific seller (to_user_id)
     public function index(Request $request)
     {
