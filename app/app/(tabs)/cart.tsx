@@ -32,14 +32,14 @@ export default function CartScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#111827" />
           </TouchableOpacity>
-          <Text style={styles.header}>Carrinho</Text>
+          <Text style={styles.header}>Desejos</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="cart-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Faça login para ver seu carrinho</Text>
+          <Text style={styles.emptyTitle}>Faça login para ver seus desejos</Text>
           <Text style={styles.emptyText}>
-            Entre na sua conta para adicionar produtos e gerenciar seu carrinho
+            Entre na sua conta para adicionar produtos e gerenciar seus desejos
           </Text>
           <TouchableOpacity
             style={styles.loginButton}
@@ -113,7 +113,7 @@ export default function CartScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.header}>Carrinho ({cartItemsCount})</Text>
+        <Text style={styles.header}>Desejos ({cartItemsCount})</Text>
         <View style={{ width: 40 }} />
       </View>
 
