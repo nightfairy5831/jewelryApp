@@ -9,12 +9,13 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
+import DocumentPicker from 'react-native-document-picker';
 import { useAppStore } from '../../store/useAppStore';
 import { productApi, sellerApi, uploadApi } from '../../services/api';
 
@@ -151,26 +152,25 @@ export default function ProductFormScreen() {
 
   const pick3DModel = async () => {
     try {
-      // Use '*/*' to show all files on Android since MIME types for 3D models are not well supported
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+        copyTo: 'cachesDirectory',
       });
 
-      if (result.canceled) return;
+      const file = result[0];
 
-      const file = result.assets[0];
-      const fileName = file.name.toLowerCase();
+      const fileData = {
+        uri: Platform.OS === 'ios' ? file.fileCopyUri || file.uri : file.fileCopyUri || file.uri,
+        type: file.type || 'application/octet-stream',
+        name: file.name,
+      };
 
-      // Validate file extension
-      if (!fileName.endsWith('.glb') && !fileName.endsWith('.gltf') && !fileName.endsWith('.obj')) {
-        Alert.alert('Arquivo inválido', 'Por favor, selecione um arquivo .glb, .gltf ou .obj');
+      await uploadFile(fileData, '3d_model');
+    } catch (error: any) {
+      if (DocumentPicker.isCancel(error)) {
+        // User cancelled the picker
         return;
       }
-
-      // Upload the 3D model
-      await uploadFile(file, '3d_model');
-    } catch (error: any) {
       Alert.alert('Erro', error.message || 'Falha ao selecionar arquivo 3D');
     }
   };
