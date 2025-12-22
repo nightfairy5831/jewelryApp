@@ -133,8 +133,8 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
           let model;
           const loader = new GLTFLoader();
 
-          console.log('Attempting to load model from: ${modelUrl}');
-          window.ReactNativeWebView?.postMessage('loading:${modelUrl}');
+          const modelUrl = '${modelUrl}';
+          window.ReactNativeWebView?.postMessage('loading:' + modelUrl);
 
           // Add timeout for large files (30 seconds)
           const loadTimeout = setTimeout(() => {
@@ -142,7 +142,7 @@ export default function Model3DViewer({ modelUrl, height }: Model3DViewerProps) 
           }, 30000);
 
           loader.load(
-            '${modelUrl}',
+            modelUrl,
             (gltf) => {
               clearTimeout(loadTimeout);
               console.log('✅ 3D model loaded successfully');

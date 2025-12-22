@@ -237,6 +237,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ...p,
           images: p.images?.slice(0, 3) || [],
           videos: p.videos?.length > 0 ? p.videos : [],
+          model_3d_url: p.model_3d_url || null,
         };
       });
 
