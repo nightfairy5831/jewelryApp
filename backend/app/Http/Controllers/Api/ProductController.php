@@ -60,6 +60,7 @@ class ProductController extends Controller
             'base_price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'images' => 'nullable|json',
+            'videos' => 'nullable|json',
             'model_3d_url' => 'nullable|url',
         ]);
 
@@ -91,6 +92,8 @@ class ProductController extends Controller
             'description' => $request->description,
             'category' => $request->category,
             'subcategory' => $request->subcategory,
+            'filling' => $request->filling,
+            'is_gemstone' => $request->is_gemstone,
             'gold_weight_grams' => $request->gold_weight_grams,
             'gold_karat' => $request->gold_karat,
             'base_price' => $request->base_price,
@@ -98,6 +101,7 @@ class ProductController extends Controller
             'initial_gold_price' => $currentGoldPrice,
             'stock_quantity' => $request->stock_quantity,
             'images' => $request->images ?? json_encode([]),
+            'videos' => $request->videos ?? json_encode([]),
             'model_3d_url' => $request->model_3d_url,
             'status' => 'pending',
             'is_active' => true,
@@ -147,6 +151,7 @@ class ProductController extends Controller
             'base_price' => 'sometimes|numeric|min:0',
             'stock_quantity' => 'sometimes|integer|min:0',
             'images' => 'nullable',
+            'videos' => 'nullable',
             'model_3d_url' => 'nullable|url',
         ]);
 
@@ -172,6 +177,7 @@ class ProductController extends Controller
 
         $updateData = $request->only([
             'name', 'description', 'category', 'subcategory',
+            'filling', 'is_gemstone',
             'gold_weight_grams', 'gold_karat', 'base_price',
             'stock_quantity', 'model_3d_url'
         ]);
@@ -183,6 +189,16 @@ class ProductController extends Controller
                 $updateData['images'] = json_encode($images);
             } else {
                 $updateData['images'] = $images;
+            }
+        }
+
+        // Handle videos - can be array or JSON string
+        if ($request->has('videos')) {
+            $videos = $request->videos;
+            if (is_array($videos)) {
+                $updateData['videos'] = json_encode($videos);
+            } else {
+                $updateData['videos'] = $videos;
             }
         }
 
