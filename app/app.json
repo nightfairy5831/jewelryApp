@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Perfect Jewel",
-    "slug": "perfect-jewel",
+    "name": "Joia Perfetia",
+    "slug": "Joia-Perfetia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -39,7 +39,7 @@
         "origin": false
       },
       "eas": {
-        "projectId": "8e24cfd9-3382-4aa3-bec7-242ef76fe712"
+        "projectId": "c6c3e623-b16b-4284-923d-2c4dc80e1b05"
       }
     }
   }

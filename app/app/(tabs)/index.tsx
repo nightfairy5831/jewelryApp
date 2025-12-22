@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { router } from 'expo-router';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
 import Model3DViewer from '../../components/product/Model3DViewer';
@@ -36,11 +37,19 @@ export default function CatalogScreen() {
   const { user: currentUser, isAuthenticated } = useCurrentUser();
 
   const [addingToCart, setAddingToCart] = useState(false);
+  const videoRef = useRef<Video>(null);
 
   // Load products from API on mount
   useEffect(() => {
     loadProducts();
   }, []);
+
+  // Redirect sellers to seller dashboard (only after products loaded to avoid premature navigation)
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'seller' && !isLoading) {
+      router.replace('/(tabs)/seller-dashboard');
+    }
+  }, [currentUser, isLoading]);
 
   // Reset button state when switching to detail mode or changing product
   useEffect(() => {
@@ -115,9 +124,9 @@ export default function CatalogScreen() {
     setAddingToCart(true);
     try {
       await addToCart(parseInt(currentProduct.id), 1);
-      Alert.alert('Sucesso!', 'Produto adicionado ao carrinho', [
-        { text: 'Continuar Comprando', style: 'cancel' },
-        { text: 'Ir para Carrinho', onPress: () => router.push('/(tabs)/cart') },
+      Alert.alert('Sucesso!', 'Produto adicionado aos desejos', [
+        { text: 'CONTINUAR COMPRANDO', style: 'cancel' },
+        { text: 'IR PARA DESEJOS', onPress: () => router.push('/(tabs)/cart') },
       ]);
     } catch (error: any) {
       console.error('❌ Add to cart error:', error);
@@ -235,11 +244,15 @@ export default function CatalogScreen() {
                       resizeMode="cover"
                     />
                   )}
-                  {mediaItems[selectedMediaIndex]?.type === 'video' && (
-                    <View style={styles.videoPlaceholder}>
-                      <Ionicons name="play-circle" size={80} color="#fff" />
-                      <Text style={styles.placeholderText}>Video Player</Text>
-                    </View>
+                  {mediaItems[selectedMediaIndex]?.type === 'video' && mediaItems[selectedMediaIndex]?.url && (
+                    <Video
+                      ref={videoRef}
+                      source={{ uri: mediaItems[selectedMediaIndex].url }}
+                      style={styles.mainMedia}
+                      useNativeControls
+                      resizeMode={ResizeMode.CONTAIN}
+                      isLooping
+                    />
                   )}
                 </View>
 

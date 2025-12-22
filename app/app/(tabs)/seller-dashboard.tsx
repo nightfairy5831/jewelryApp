@@ -19,7 +19,7 @@ import GoldPriceIndicator from '../../components/ui/GoldPriceIndicator';
 
 export default function SellerDashboardScreen() {
   const router = useRouter();
-  const { authToken } = useAppStore();
+  const { authToken, logout } = useAppStore();
   const { user: currentUser, isAuthenticated } = useCurrentUser();
 
   const [dashboard, setDashboard] = useState<SellerDashboard | null>(null);
@@ -29,8 +29,11 @@ export default function SellerDashboardScreen() {
 
   useEffect(() => {
     // Only fetch dashboard if user is authenticated AND is a seller
-    if (isAuthenticated && authToken && currentUser?.role === 'seller') {
+    if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
       fetchDashboard();
+    } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
+      // Stop loading if not authenticated or not a seller (let _layout.tsx handle redirect)
+      setLoading(false);
     }
   }, [isAuthenticated, authToken, currentUser]);
 
@@ -43,6 +46,14 @@ export default function SellerDashboardScreen() {
       setDashboard(data);
     } catch (err: any) {
       console.error('Error fetching dashboard:', err);
+
+      // If session expired, clear all user data and redirect to index
+      if (err.message?.includes('Session expired')) {
+        await logout(); // Clear all user info
+        router.replace('/(tabs)'); // Show index page
+        return;
+      }
+
       setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);

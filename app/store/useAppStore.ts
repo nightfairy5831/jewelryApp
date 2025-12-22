@@ -246,8 +246,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         isLoading: false,
         error: null
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load products:', error);
+
+      // Check if it's an auth error - clear invalid token
+      if (error.message?.includes('Invalid credentials') ||
+          error.message?.includes('Unauthenticated') ||
+          error.message?.includes('Session expired')) {
+        console.log('🔑 Token invalid, clearing auth...');
+        await get().logout(); // Clear auth data
+      }
+
       set({
         isLoading: false,
         error: 'Failed to load products. Please check your connection.'
