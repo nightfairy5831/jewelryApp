@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { router } from 'expo-router';
 
 export default function CartScreen() {
@@ -15,12 +15,61 @@ export default function CartScreen() {
   } = useAppStore();
 
   const isAuthenticated = !!authToken;
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchCart();
     }
   }, [isAuthenticated]);
+
+  // Initialize all items as selected when cart loads
+  useEffect(() => {
+    if (cart?.cart?.items) {
+      setSelectedItems(new Set(cart.cart.items.map(item => item.id)));
+    }
+  }, [cart?.cart?.items?.length]);
+
+  const toggleItemSelection = (itemId: number) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!cart?.cart?.items) return;
+
+    const allItemIds = cart.cart.items.map(item => item.id);
+    const allSelected = allItemIds.every(id => selectedItems.has(id));
+
+    if (allSelected) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(allItemIds));
+    }
+  };
+
+  // Calculate totals based on selected items only
+  const selectedTotals = useMemo(() => {
+    if (!cart?.cart?.items) return { subtotal: 0, shipping: 0, tax: 0, total: 0, count: 0 };
+
+    const selectedCartItems = cart.cart.items.filter(item => selectedItems.has(item.id));
+    const subtotal = selectedCartItems.reduce((sum, item) => sum + (Number(item.price_at_time_of_add) * item.quantity), 0);
+    const shipping = selectedCartItems.length > 0 ? cart.shipping : 0;
+    const tax = selectedCartItems.length > 0 ? (subtotal * 0.1) : 0; // 10% tax approximation
+    const total = subtotal + shipping + tax;
+
+    return { subtotal, shipping, tax, total, count: selectedCartItems.length };
+  }, [cart, selectedItems]);
+
+  const isAllSelected = cart?.cart?.items && cart.cart.items.length > 0 &&
+    cart.cart.items.every(item => selectedItems.has(item.id));
 
   if (!isAuthenticated) {
     return (
@@ -100,7 +149,13 @@ export default function CartScreen() {
   };
 
   const handleCheckout = () => {
-    router.push('/checkout');
+    if (selectedItems.size === 0) {
+      Alert.alert('Selecione itens', 'Por favor, selecione pelo menos um item para comprar.');
+      return;
+    }
+    // Pass selected item IDs to checkout
+    const selectedItemIds = Array.from(selectedItems);
+    router.push({ pathname: '/checkout', params: { selectedItems: JSON.stringify(selectedItemIds) } });
   };
 
   return (
@@ -117,9 +172,27 @@ export default function CartScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Select All Row */}
+      <TouchableOpacity style={styles.selectAllRow} onPress={toggleSelectAll}>
+        <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
+          {isAllSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+        </View>
+        <Text style={styles.selectAllText}>Selecionar todos</Text>
+      </TouchableOpacity>
+
       <ScrollView style={styles.scrollView}>
         {cart.cart.items.map((item) => (
           <View key={item.id} style={styles.cartItem}>
+            {/* Checkbox */}
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => toggleItemSelection(item.id)}
+            >
+              <View style={[styles.checkbox, selectedItems.has(item.id) && styles.checkboxSelected]}>
+                {selectedItems.has(item.id) && <Ionicons name="checkmark" size={16} color="#fff" />}
+              </View>
+            </TouchableOpacity>
+
             <Image
               source={{ uri: item.product?.images?.[0] || item.product?.thumbnail || 'https://via.placeholder.com/60' }}
               style={styles.productImage}
@@ -162,23 +235,27 @@ export default function CartScreen() {
       <View style={styles.summaryContainer}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal:</Text>
-          <Text style={styles.summaryValue}>R$ {cart.subtotal.toFixed(2)}</Text>
+          <Text style={styles.summaryValue}>R$ {selectedTotals.subtotal.toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Shipping:</Text>
-          <Text style={styles.summaryValue}>R$ {cart.shipping.toFixed(2)}</Text>
+          <Text style={styles.summaryLabel}>Frete:</Text>
+          <Text style={styles.summaryValue}>R$ {selectedTotals.shipping.toFixed(2)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Tax:</Text>
-          <Text style={styles.summaryValue}>R$ {cart.tax.toFixed(2)}</Text>
+          <Text style={styles.summaryLabel}>Taxas:</Text>
+          <Text style={styles.summaryValue}>R$ {selectedTotals.tax.toFixed(2)}</Text>
         </View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalValue}>R$ {cart.total.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>R$ {selectedTotals.total.toFixed(2)}</Text>
         </View>
 
-        <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
-          <Text style={styles.checkoutButtonText}>Finalizar Compra</Text>
+        <TouchableOpacity
+          style={[styles.checkoutButton, selectedItems.size === 0 && styles.checkoutButtonDisabled]}
+          onPress={handleCheckout}
+          disabled={selectedItems.size === 0}
+        >
+          <Text style={styles.checkoutButtonText}>Comprar Desejo</Text>
           <Ionicons name="arrow-forward" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -388,5 +465,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  checkoutButtonDisabled: {
+    opacity: 0.5,
+  },
+  selectAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  selectAllText: {
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 12,
+  },
+  checkboxContainer: {
+    paddingRight: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#D4AF37',
+    borderColor: '#D4AF37',
   },
 });
