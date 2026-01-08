@@ -576,6 +576,7 @@ export interface Payment {
 export interface CreateOrderData {
   shipping_address: ShippingAddress;
   payment_method: 'pix' | 'credit_card' | 'boleto';
+  cart_item_ids?: number[]; // Optional: specific cart item IDs to include in order
 }
 
 export const orderApi = {

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, ScrollView, Alert, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
@@ -9,7 +9,8 @@ import { router } from 'expo-router';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
 import Model3DViewer from '../../components/product/Model3DViewer';
 
-const GOLDEN_RATIO = 0.618;
+const GOLDEN_RATIO = 0.59;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function CatalogScreen() {
   const {
@@ -203,107 +204,204 @@ export default function CatalogScreen() {
       ]
     : currentFilterSet.slice(0, 4);
 
+  // Calculate viewer height based on screen
+  const viewerHeight = SCREEN_HEIGHT * GOLDEN_RATIO;
+
+  // Detail mode - full screen scrollable layout
+  if (catalogMode === 'detail' && currentProduct) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.detailFullScrollView}
+          contentContainerStyle={styles.detailScrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          {/* Media Viewer Section */}
+          <View style={[styles.detailViewerSection, { height: viewerHeight }]}>
+            <View style={styles.mediaViewerContainer}>
+              {mediaItems[selectedMediaIndex]?.type === '3d' && mediaItems[selectedMediaIndex]?.url && (
+                <Model3DViewer modelUrl={mediaItems[selectedMediaIndex].url} />
+              )}
+              {mediaItems[selectedMediaIndex]?.type === 'image' && mediaItems[selectedMediaIndex]?.url && (
+                <Image
+                  source={{ uri: mediaItems[selectedMediaIndex].url }}
+                  style={styles.mainMedia}
+                  resizeMode="cover"
+                />
+              )}
+              {mediaItems[selectedMediaIndex]?.type === 'video' && mediaItems[selectedMediaIndex]?.url && (
+                <Video
+                  ref={videoRef}
+                  source={{ uri: mediaItems[selectedMediaIndex].url }}
+                  style={styles.mainMedia}
+                  useNativeControls
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping
+                />
+              )}
+            </View>
+
+          </View>
+
+          {/* Gray circle indicators */}
+          <View style={styles.circleIndicatorRow}>
+            {mediaItems.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={[
+                  styles.circleIndicator,
+                  selectedMediaIndex === idx && styles.circleIndicatorActive
+                ]}
+                onPress={() => setSelectedMediaIndex(idx)}
+              />
+            ))}
+          </View>
+
+          {/* Product Details */}
+          <View style={styles.detailContentSection}>
+            <ProductDetailContent
+              product={currentProduct}
+              compact={true}
+            />
+          </View>
+
+          {/* Bottom spacing for sticky buttons */}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* Fixed Navigation Buttons - bottom right, same position as browse mode */}
+        <View style={styles.detailControlsOverlay}>
+          <TouchableOpacity style={styles.plusButton} onPress={handlePlusClick}>
+            <Image
+              source={require('../../assets/navigation/cancel.png')}
+              style={styles.navButtonIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.arrowButton}
+            onPress={() => {
+              if (mediaItems.length > 0) {
+                const prevIndex = selectedMediaIndex > 0 ? selectedMediaIndex - 1 : mediaItems.length - 1;
+                setSelectedMediaIndex(prevIndex);
+              }
+            }}
+          >
+            <Image
+              source={require('../../assets/navigation/previous.png')}
+              style={styles.navButtonIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.arrowButton}
+            onPress={() => {
+              if (mediaItems.length > 0) {
+                const nextIndex = selectedMediaIndex < mediaItems.length - 1 ? selectedMediaIndex + 1 : 0;
+                setSelectedMediaIndex(nextIndex);
+              }
+            }}
+          >
+            <Image
+              source={require('../../assets/navigation/next.png')}
+              style={styles.navButtonIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Sticky Buttons */}
+        <View style={styles.stickyButtonContainer}>
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
+            style={styles.gradientBackground}
+          />
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.desejoButton, addingToCart && styles.buttonDisabled]}
+              onPress={handleAddToCart}
+              disabled={addingToCart}
+            >
+              {addingToCart ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <>
+                  <Ionicons name="heart-outline" size={20} color="#000000" />
+                  <Text style={styles.desejoButtonText}>Desejo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.comprarButton, addingToCart && styles.buttonDisabled]}
+              onPress={handleBuyNow}
+              disabled={addingToCart}
+            >
+              <Text style={styles.comprarButtonText}>Comprar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Browse mode - original layout
   return (
     <View style={styles.container}>
 
-      {/* PRODUCT SECTION - 61.8% */}
+      {/* PRODUCT SECTION - 59% */}
       <View style={styles.productSection}>
         {currentProduct ? (
           <>
-            {catalogMode === 'browse' ? (
-              /* BROWSE MODE - Show thumbnail only */
-              <>
-                {currentProduct.thumbnail ? (
-                  <Image
-                    source={{ uri: currentProduct.thumbnail }}
-                    style={styles.productImage}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={styles.productImage}>
-                    <Ionicons name="image-outline" size={64} color="#d1d5db" />
-                  </View>
-                )}
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.3)']}
-                  style={styles.gradientOverlay}
-                />
-              </>
+            {currentProduct.thumbnail ? (
+              <Image
+                source={{ uri: currentProduct.thumbnail }}
+                style={styles.productImage}
+                resizeMode="cover"
+              />
             ) : (
-              /* DETAIL MODE - Show media viewer with slider */
-              <View style={styles.mediaViewerContainer}>
-                {/* Top: Main viewer (70%) */}
-                <View style={styles.mainViewer}>
-                  {mediaItems[selectedMediaIndex]?.type === '3d' && mediaItems[selectedMediaIndex]?.url && (
-                    <Model3DViewer modelUrl={mediaItems[selectedMediaIndex].url} />
-                  )}
-                  {mediaItems[selectedMediaIndex]?.type === 'image' && mediaItems[selectedMediaIndex]?.url && (
-                    <Image
-                      source={{ uri: mediaItems[selectedMediaIndex].url }}
-                      style={styles.mainMedia}
-                      resizeMode="cover"
-                    />
-                  )}
-                  {mediaItems[selectedMediaIndex]?.type === 'video' && mediaItems[selectedMediaIndex]?.url && (
-                    <Video
-                      ref={videoRef}
-                      source={{ uri: mediaItems[selectedMediaIndex].url }}
-                      style={styles.mainMedia}
-                      useNativeControls
-                      resizeMode={ResizeMode.CONTAIN}
-                      isLooping
-                    />
-                  )}
-                </View>
-
-                {/* Bottom: Thumbnail slider (30%) */}
-                <View style={styles.thumbnailSlider}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {mediaItems.map((item, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[
-                          styles.thumbnailItem,
-                          selectedMediaIndex === idx && styles.thumbnailItemActive
-                        ]}
-                        onPress={() => setSelectedMediaIndex(idx)}
-                      >
-                        {item.type === '3d' && (
-                          <View style={styles.thumbnailIcon}>
-                            <Ionicons name="cube" size={24} color="#fff" />
-                          </View>
-                        )}
-                        {item.type === 'image' && item.url && (
-                          <Image source={{ uri: item.url }} style={styles.thumbnailImage} />
-                        )}
-                        {item.type === 'video' && (
-                          <View style={styles.thumbnailIcon}>
-                            <Ionicons name="play" size={24} color="#fff" />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+              <View style={styles.productImage}>
+                <Ionicons name="image-outline" size={64} color="#d1d5db" />
               </View>
             )}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.gradientOverlay}
+            />
 
-            {/* Controls: HORIZONTAL - 3 Dots and Arrows on same line */}
+            {/* Controls: Navigation arrows */}
             <View style={styles.controlsOverlay}>
               <TouchableOpacity style={styles.plusButton} onPress={handlePlusClick}>
-                <Ionicons
-                  name={catalogMode === 'detail' ? 'close' : 'ellipsis-horizontal'}
-                  size={28}
-                  color="#000"
+                <Image
+                  source={require('../../assets/navigation/detail.png')}
+                  style={styles.navButtonIcon}
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.arrowButton} onPress={previousProduct}>
-                <Ionicons name="arrow-back" size={24} color="#000" />
+              <TouchableOpacity
+                style={styles.arrowButton}
+                onPress={() => previousProduct()}
+              >
+                <Image
+                  source={require('../../assets/navigation/previous.png')}
+                  style={styles.navButtonIcon}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.arrowButton} onPress={nextProduct}>
-                <Ionicons name="arrow-forward" size={24} color="#000" />
+              <TouchableOpacity
+                style={styles.arrowButton}
+                onPress={() => nextProduct()}
+              >
+                <Image
+                  source={require('../../assets/navigation/next.png')}
+                  style={styles.navButtonIcon}
+                  resizeMode="contain"
+                />
               </TouchableOpacity>
             </View>
           </>
@@ -314,12 +412,9 @@ export default function CatalogScreen() {
 
       <View style={styles.divider} />
 
-      {/* FILTER SECTION - 38.2% */}
+      {/* FILTER SECTION - 41% */}
       <View style={styles.filterSection}>
-
-        {catalogMode === 'browse' ? (
-          /* BROWSE MODE: Show filters */
-          <View style={styles.filterGrid}>
+        <View style={styles.filterGrid}>
 
             {/* LEFT SECTION - 60% (DYNAMIC 2x2 grid) */}
             <View style={styles.leftSection}>
@@ -442,57 +537,11 @@ export default function CatalogScreen() {
                 <Text style={styles.wishesLabel}>Desejos</Text>
               </TouchableOpacity>
 
+
             </View>
-
-          </View>
-        ) : (
-          /* DETAIL MODE: Show product detail component */
-          <ScrollView style={styles.detailScrollView} showsVerticalScrollIndicator={false}>
-            <ProductDetailContent
-              product={currentProduct}
-              compact={true}
-            />
-          </ScrollView>
-        )}
-
-      </View>
-
-      {/* Sticky Buttons - Only visible in detail mode */}
-      {catalogMode === 'detail' && currentProduct && (
-        <View style={styles.stickyButtonContainer}>
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
-            style={styles.gradientBackground}
-          />
-          <View style={styles.buttonRow}>
-            {/* Desejo Button - Add to Cart */}
-            <TouchableOpacity
-              style={[styles.desejoButton, addingToCart && styles.buttonDisabled]}
-              onPress={handleAddToCart}
-              disabled={addingToCart}
-            >
-              {addingToCart ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <>
-                  <Ionicons name="heart-outline" size={20} color="#000000" />
-                  <Text style={styles.desejoButtonText}>Desejo</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Comprar Button - Buy Now */}
-            <TouchableOpacity
-              style={[styles.comprarButton, addingToCart && styles.buttonDisabled]}
-              onPress={handleBuyNow}
-              disabled={addingToCart}
-            >
-              <Text style={styles.comprarButtonText}>Comprar</Text>
-            </TouchableOpacity>
           </View>
         </View>
-      )}
-    </View>
+      </View>
   );
 }
 
@@ -532,10 +581,16 @@ const styles = StyleSheet.create({
   // Media Viewer (Detail Mode)
   mediaViewerContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
+  },
+  mainViewerFull: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
   },
   mainViewer: {
-    flex: 0.75,
+    flex: 0.90,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -560,10 +615,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   thumbnailSlider: {
-    flex: 0.25,
-    backgroundColor: '#f9fafb',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    flex: 0.10,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  circleIndicatorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 8,
+  },
+  circleIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#D1D5DB',
+  },
+  circleIndicatorActive: {
+    backgroundColor: '#000000',
+  },
+  circleIndicatorRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+  },
+  indicatorNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
+  },
+  detailNavButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailNavButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   thumbnailItem: {
     width: 80,
@@ -601,6 +704,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  // Fixed controls for detail mode - at 60% height from top
+  detailControlsOverlay: {
+    position: 'absolute',
+    top: '52%',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
 
   plusButton: {
     width: 50,
@@ -630,6 +742,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
+  navButtonIcon: {
+    width: 28,
+    height: 28,
+  },
+
   divider: {
     height: 1,
     backgroundColor: '#e5e7eb',
@@ -640,9 +757,49 @@ const styles = StyleSheet.create({
     flex: 1 - GOLDEN_RATIO,
     backgroundColor: '#ffffff',
   },
+  detailModeContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  detailFullScrollView: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  detailScrollContent: {
+    backgroundColor: '#ffffff',
+  },
+  detailViewerSection: {
+    backgroundColor: '#000000',
+  },
+  detailContentSection: {
+    backgroundColor: '#fafafa',
+    minHeight: SCREEN_HEIGHT,
+  },
   detailScrollView: {
     flex: 1,
     backgroundColor: '#fafafa',
+  },
+  fixedNavButtons: {
+    position: 'absolute',
+    top: '50%',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    transform: [{ translateY: -22 }],
+  },
+  fixedNavButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   filterGrid: {
     flex: 1,

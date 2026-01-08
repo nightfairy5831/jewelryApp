@@ -1,13 +1,42 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
-import { useState } from 'react';
-import { router } from 'expo-router';
+import { useState, useMemo } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { orderApi, type ShippingAddress } from '../services/api';
 
 export default function CheckoutScreen() {
   const { cart, authToken, fetchCart, fetchOrders } = useAppStore();
   const [loading, setLoading] = useState(false);
+  const params = useLocalSearchParams();
+
+  // Parse selected item IDs from params
+  const selectedItemIds: number[] = useMemo(() => {
+    if (params.selectedItems) {
+      try {
+        return JSON.parse(params.selectedItems as string);
+      } catch {
+        return [];
+      }
+    }
+    // If no selection passed, use all items
+    return cart?.cart?.items?.map(item => item.id) || [];
+  }, [params.selectedItems, cart]);
+
+  // Filter cart items to only selected ones
+  const selectedCartItems = useMemo(() => {
+    if (!cart?.cart?.items) return [];
+    return cart.cart.items.filter(item => selectedItemIds.includes(item.id));
+  }, [cart, selectedItemIds]);
+
+  // Calculate totals for selected items only
+  const selectedTotals = useMemo(() => {
+    const subtotal = selectedCartItems.reduce((sum, item) => sum + (Number(item.price_at_time_of_add) * item.quantity), 0);
+    const shipping = selectedCartItems.length > 0 ? (cart?.shipping || 0) : 0;
+    const tax = selectedCartItems.length > 0 ? (subtotal * 0.1) : 0;
+    const total = subtotal + shipping + tax;
+    return { subtotal, shipping, tax, total };
+  }, [selectedCartItems, cart]);
 
   const [address, setAddress] = useState<ShippingAddress>({
     street: '',
@@ -65,17 +94,17 @@ export default function CheckoutScreen() {
     );
   }
 
-  if (!cart || cart.cart.items.length === 0) {
+  if (!cart || selectedCartItems.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="cart-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptyTitle}>Nenhum item selecionado</Text>
           <TouchableOpacity
             style={styles.shopButton}
-            onPress={() => router.push('/(tabs)')}
+            onPress={() => router.push('/(tabs)/cart')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>Voltar aos Desejos</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -85,21 +114,27 @@ export default function CheckoutScreen() {
   const handlePlaceOrder = async () => {
     // Validate address
     if (!address.street || !address.city || !address.state || !address.postal_code) {
-      Alert.alert('Error', 'Please fill in all shipping address fields');
+      Alert.alert('Erro', 'Por favor, preencha todos os campos de endereço');
       return;
     }
 
     if (!authToken) {
-      Alert.alert('Error', 'Please login to place an order');
+      Alert.alert('Erro', 'Por favor, faça login para finalizar o pedido');
+      return;
+    }
+
+    if (selectedItemIds.length === 0) {
+      Alert.alert('Erro', 'Nenhum item selecionado');
       return;
     }
 
     setLoading(true);
     try {
-      // Create order from cart
+      // Create order from selected cart items only
       const response = await orderApi.createOrder(authToken, {
         shipping_address: address,
         payment_method: 'credit_card',
+        cart_item_ids: selectedItemIds,
       });
 
       // Navigate to payment screen immediately
@@ -109,7 +144,7 @@ export default function CheckoutScreen() {
       fetchCart().catch(console.error);
       fetchOrders().catch(console.error);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to place order');
+      Alert.alert('Erro', error.message || 'Falha ao criar pedido');
       setLoading(false);
     }
     // Note: Don't setLoading(false) in finally - we're navigating away
@@ -133,12 +168,12 @@ export default function CheckoutScreen() {
 
         {/* Order Summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <Text style={styles.sectionTitle}>Resumo do Pedido</Text>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryText}>
-              {cart.cart.items.length} item(s)
+              {selectedCartItems.length} item(s) selecionado(s)
             </Text>
-            <Text style={styles.summaryAmount}>R$ {cart.total.toFixed(2)}</Text>
+            <Text style={styles.summaryAmount}>R$ {selectedTotals.total.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -199,19 +234,19 @@ export default function CheckoutScreen() {
           <View style={styles.totalContainer}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal:</Text>
-              <Text style={styles.totalValue}>R$ {cart.subtotal.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>R$ {selectedTotals.subtotal.toFixed(2)}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Shipping:</Text>
-              <Text style={styles.totalValue}>R$ {cart.shipping.toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Frete:</Text>
+              <Text style={styles.totalValue}>R$ {selectedTotals.shipping.toFixed(2)}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tax:</Text>
-              <Text style={styles.totalValue}>R$ {cart.tax.toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Taxas:</Text>
+              <Text style={styles.totalValue}>R$ {selectedTotals.tax.toFixed(2)}</Text>
             </View>
             <View style={[styles.totalRow, styles.grandTotalRow]}>
               <Text style={styles.grandTotalLabel}>Total:</Text>
-              <Text style={styles.grandTotalValue}>R$ {cart.total.toFixed(2)}</Text>
+              <Text style={styles.grandTotalValue}>R$ {selectedTotals.total.toFixed(2)}</Text>
             </View>
           </View>
         </View>
