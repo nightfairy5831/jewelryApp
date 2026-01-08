@@ -52,6 +52,8 @@ class OrderController extends Controller
             'shipping_address.state' => 'required|string',
             'shipping_address.postal_code' => 'required|string',
             'shipping_address.country' => 'required|string',
+            'cart_item_ids' => 'nullable|array',
+            'cart_item_ids.*' => 'integer',
         ]);
 
         if ($validator->fails()) {
@@ -65,8 +67,22 @@ class OrderController extends Controller
             return response()->json(['error' => 'Cart is empty'], 400);
         }
 
-        // Validate stock for all items
-        foreach ($cart->items as $item) {
+        // Filter cart items if specific IDs provided
+        $cartItemIds = $request->cart_item_ids;
+        $itemsToProcess = $cart->items;
+
+        if ($cartItemIds && count($cartItemIds) > 0) {
+            $itemsToProcess = $cart->items->filter(function ($item) use ($cartItemIds) {
+                return in_array($item->id, $cartItemIds);
+            });
+
+            if ($itemsToProcess->isEmpty()) {
+                return response()->json(['error' => 'No valid cart items selected'], 400);
+            }
+        }
+
+        // Validate stock for selected items
+        foreach ($itemsToProcess as $item) {
             if (!$item->product) {
                 return response()->json([
                     'error' => 'One or more products in your cart are no longer available'
@@ -89,8 +105,10 @@ class OrderController extends Controller
 
         DB::beginTransaction();
         try {
-            // Calculate totals
-            $subtotal = $cart->calculateSubtotal();
+            // Calculate totals for selected items only
+            $subtotal = $itemsToProcess->sum(function ($item) {
+                return $item->price_at_time_of_add * $item->quantity;
+            });
             $shippingAmount = 0; // Can be calculated based on logic
             $taxAmount = 0; // Can be calculated based on logic
             $totalAmount = $subtotal + $shippingAmount + $taxAmount;
@@ -107,8 +125,8 @@ class OrderController extends Controller
                 'reserved_until' => now()->addHours(24),
             ]);
 
-            // Create order items and update stock
-            foreach ($cart->items as $cartItem) {
+            // Create order items and update stock for selected items only
+            foreach ($itemsToProcess as $cartItem) {
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $cartItem->product_id,
@@ -130,8 +148,9 @@ class OrderController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Clear cart
-            $cart->items()->delete();
+            // Remove only processed items from cart (keep non-selected items)
+            $processedItemIds = $itemsToProcess->pluck('id')->toArray();
+            $cart->items()->whereIn('id', $processedItemIds)->delete();
 
             DB::commit();
 

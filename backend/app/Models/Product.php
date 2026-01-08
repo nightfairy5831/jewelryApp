@@ -15,6 +15,7 @@ class Product extends Model
         'current_price',
         'gold_weight_grams',
         'gold_karat',
+        'material',
         'initial_gold_price',
         'category',
         'subcategory',
@@ -91,12 +92,23 @@ class Product extends Model
 
     public function calculateCurrentPrice(GoldPrice $goldPrice)
     {
-        $karatField = 'price_gram_' . strtolower($this->gold_karat ?? '18k');
-        $currentKaratPrice = $goldPrice->$karatField ?? $goldPrice->price_per_gram;
+        // Non-gold materials (Outros) don't have price fluctuations
+        if ($this->material === 'Outros') {
+            return $this->base_price;
+        }
+
+        // Only 18k and 10k gold have price fluctuations based on gold weight
+        if (!in_array($this->material, ['Ouro 18K', 'Ouro 10K'])) {
+            return $this->base_price;
+        }
 
         if (!$this->initial_gold_price || $this->initial_gold_price == 0) {
             return $this->base_price;
         }
+
+        // Get the appropriate karat price field
+        $karatField = 'price_gram_' . strtolower($this->gold_karat ?? '18k');
+        $currentKaratPrice = $goldPrice->$karatField ?? $goldPrice->price_per_gram;
 
         $priceRatio = $currentKaratPrice / $this->initial_gold_price;
         return round($this->base_price * $priceRatio, 2);
