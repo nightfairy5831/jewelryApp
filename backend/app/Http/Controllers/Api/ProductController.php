@@ -55,8 +55,9 @@ class ProductController extends Controller
             'subcategory' => 'required|string',
             'filling' => 'nullable|in:Solid,Hollow,Defense',
             'is_gemstone' => 'nullable|in:Synthetic,Natural,Without Stones',
+            'material' => 'required|in:Ouro 18K,Ouro 10K,Outros',
             'gold_weight_grams' => 'required|numeric|min:0',
-            'gold_karat' => 'required|in:18k,22k,24k',
+            'gold_karat' => 'nullable|in:18k,10k',
             'base_price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
             'images' => 'nullable|json',
@@ -82,9 +83,25 @@ class ProductController extends Controller
             }
         }
 
-        // Get current gold price
+        // Get current gold price based on material
         $latestGoldPrice = \App\Models\GoldPrice::getLatest();
-        $currentGoldPrice = $latestGoldPrice?->price_gram_18k ?? 99.17;
+        $material = $request->material;
+
+        // Set gold_karat based on material if not provided
+        $goldKarat = $request->gold_karat;
+        if ($material === 'Ouro 18K' && !$goldKarat) {
+            $goldKarat = '18k';
+        } elseif ($material === 'Ouro 10K' && !$goldKarat) {
+            $goldKarat = '10k';
+        }
+
+        // Get initial gold price based on karat (only for gold materials)
+        $initialGoldPrice = 0;
+        if ($material === 'Ouro 18K') {
+            $initialGoldPrice = $latestGoldPrice?->price_gram_18k ?? 99.17;
+        } elseif ($material === 'Ouro 10K') {
+            $initialGoldPrice = $latestGoldPrice?->price_gram_10k ?? 55.09;
+        }
 
         $product = Product::create([
             'seller_id' => $user->id,
@@ -94,11 +111,12 @@ class ProductController extends Controller
             'subcategory' => $request->subcategory,
             'filling' => $request->filling,
             'is_gemstone' => $request->is_gemstone,
+            'material' => $material,
             'gold_weight_grams' => $request->gold_weight_grams,
-            'gold_karat' => $request->gold_karat,
+            'gold_karat' => $goldKarat,
             'base_price' => $request->base_price,
             'current_price' => $request->base_price,
-            'initial_gold_price' => $currentGoldPrice,
+            'initial_gold_price' => $initialGoldPrice,
             'stock_quantity' => $request->stock_quantity,
             'images' => $request->images ?? json_encode([]),
             'videos' => $request->videos ?? json_encode([]),
@@ -146,8 +164,9 @@ class ProductController extends Controller
             'subcategory' => 'sometimes|string',
             'filling' => 'nullable|in:Solid,Hollow,Defense',
             'is_gemstone' => 'nullable|in:Synthetic,Natural,Without Stones',
+            'material' => 'sometimes|in:Ouro 18K,Ouro 10K,Outros',
             'gold_weight_grams' => 'sometimes|numeric|min:0',
-            'gold_karat' => 'sometimes|in:18k,22k,24k',
+            'gold_karat' => 'nullable|in:18k,10k',
             'base_price' => 'sometimes|numeric|min:0',
             'stock_quantity' => 'sometimes|integer|min:0',
             'images' => 'nullable',
@@ -177,7 +196,7 @@ class ProductController extends Controller
 
         $updateData = $request->only([
             'name', 'description', 'category', 'subcategory',
-            'filling', 'is_gemstone',
+            'filling', 'is_gemstone', 'material',
             'gold_weight_grams', 'gold_karat', 'base_price',
             'stock_quantity', 'model_3d_url'
         ]);
