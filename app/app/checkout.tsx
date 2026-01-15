@@ -217,36 +217,49 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Payment Method - Fixed to Credit Card */}
+        {/* Payment Method Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Method</Text>
-          <View style={styles.paymentInfoBox}>
-            <Ionicons name="card-outline" size={32} color="#D4AF37" />
-            <View style={styles.paymentInfo}>
-              <Text style={styles.paymentTitle}>Credit Card</Text>
-              <Text style={styles.paymentSubtitle}>Processed securely via Mercado Pago</Text>
+          <Text style={styles.sectionTitle}>Pagamento</Text>
+          <View style={styles.paymentOptionsInfo}>
+            <View style={styles.paymentOption}>
+              <Ionicons name="card-outline" size={24} color="#D4AF37" />
+              <View style={styles.paymentOptionInfo}>
+                <Text style={styles.paymentOptionTitle}>Cartão de Crédito</Text>
+                <Text style={styles.paymentOptionFee}>Taxa: 10%</Text>
+              </View>
+            </View>
+            <View style={styles.paymentOption}>
+              <Ionicons name="qr-code-outline" size={24} color="#D4AF37" />
+              <View style={styles.paymentOptionInfo}>
+                <Text style={styles.paymentOptionTitle}>PIX</Text>
+                <Text style={styles.paymentOptionFee}>Taxa: 8%</Text>
+              </View>
             </View>
           </View>
+          <Text style={styles.paymentNote}>
+            Você escolherá o método de pagamento na próxima tela.
+            Cada vendedor receberá um pagamento separado.
+          </Text>
         </View>
 
         {/* Order Total */}
         <View style={styles.section}>
           <View style={styles.totalContainer}>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal:</Text>
+              <Text style={styles.totalLabel}>Subtotal (Produtos):</Text>
               <Text style={styles.totalValue}>R$ {selectedTotals.subtotal.toFixed(2)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Taxa (8-10%):</Text>
+              <Text style={styles.totalValue}>R$ {(selectedTotals.subtotal * 0.08).toFixed(2)} - R$ {(selectedTotals.subtotal * 0.10).toFixed(2)}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Frete:</Text>
               <Text style={styles.totalValue}>R$ {selectedTotals.shipping.toFixed(2)}</Text>
             </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Taxas:</Text>
-              <Text style={styles.totalValue}>R$ {selectedTotals.tax.toFixed(2)}</Text>
-            </View>
             <View style={[styles.totalRow, styles.grandTotalRow]}>
-              <Text style={styles.grandTotalLabel}>Total:</Text>
-              <Text style={styles.grandTotalValue}>R$ {selectedTotals.total.toFixed(2)}</Text>
+              <Text style={styles.grandTotalLabel}>Total Estimado:</Text>
+              <Text style={styles.grandTotalValue}>R$ {(selectedTotals.subtotal * 1.08 + selectedTotals.shipping).toFixed(2)} - R$ {(selectedTotals.subtotal * 1.10 + selectedTotals.shipping).toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -364,28 +377,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
-  paymentInfoBox: {
+  paymentOptionsInfo: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 12,
+    gap: 12,
+  },
+  paymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fffbf0',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D4AF37',
+    gap: 12,
   },
-  paymentInfo: {
+  paymentOptionInfo: {
     flex: 1,
-    marginLeft: 12,
   },
-  paymentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  paymentOptionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#333',
   },
-  paymentSubtitle: {
-    fontSize: 14,
+  paymentOptionFee: {
+    fontSize: 12,
     color: '#666',
-    marginTop: 2,
+  },
+  paymentNote: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 12,
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
   totalContainer: {
     gap: 8,
