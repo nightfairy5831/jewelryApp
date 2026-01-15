@@ -184,29 +184,33 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   logout: async () => {
     const { authToken } = get();
-    try {
-      if (authToken) {
-        await authApi.logout(authToken);
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Clear all auth-related data from AsyncStorage
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('currentUser');
-      await AsyncStorage.removeItem('rememberMe');
 
-      // Reset all store state to initial values
-      set({
-        authToken: null,
-        cart: null,
-        cartItemsCount: 0,
-        orders: [],
-        wishlist: [],
-        sellerRegistrationData: null,
-        isAuthLoading: false,
-        error: null,
-      });
+    // Clear local state first to ensure immediate UI update
+    set({
+      authToken: null,
+      cart: null,
+      cartItemsCount: 0,
+      orders: [],
+      wishlist: [],
+      sellerRegistrationData: null,
+      isAuthLoading: false,
+      error: null,
+    });
+
+    // Clear AsyncStorage
+    await AsyncStorage.multiRemove(['authToken', 'currentUser', 'rememberMe']);
+
+    // Invalidate token on server (non-blocking, fire-and-forget with timeout)
+    if (authToken) {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Logout timeout')), 3000)
+        );
+        await Promise.race([authApi.logout(authToken), timeoutPromise]);
+      } catch (error) {
+        // Silently ignore - token is already cleared locally
+        console.log('Server logout skipped:', error);
+      }
     }
   },
 

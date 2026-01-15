@@ -3,12 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { orderApi, type Order } from '../../services/api';
+import { orderApi, paymentApi, type Order, type OrderPaymentStatus } from '../../services/api';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
   const { authToken, fetchOrders } = useAppStore();
   const [order, setOrder] = useState<Order | null>(null);
+  const [payments, setPayments] = useState<OrderPaymentStatus['payments']>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
 
@@ -23,11 +24,31 @@ export default function OrderDetailScreen() {
       setLoading(true);
       const orderData = await orderApi.getOrderById(authToken, Number(id));
       setOrder(orderData);
+
+      // Load payment details for refund functionality
+      try {
+        const paymentStatus = await paymentApi.getOrderPaymentStatus(authToken, Number(id));
+        setPayments(paymentStatus.payments);
+      } catch {
+        // Payments may not exist yet
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed to load order details');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefundRequest = (payment: OrderPaymentStatus['payments'][0]) => {
+    router.push({
+      pathname: '/refund/[paymentId]',
+      params: {
+        paymentId: payment.id.toString(),
+        amount: payment.amount.toString(),
+        sellerName: payment.seller_name,
+        orderNumber: order?.order_number || '',
+      },
+    });
   };
 
   const handleCancelOrder = async () => {
@@ -269,6 +290,48 @@ export default function OrderDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Refund Request Section - Show for delivered/confirmed orders with completed payments */}
+        {['confirmed', 'shipped', 'delivered'].includes(order.status) && payments.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Solicitar Reembolso</Text>
+            <Text style={styles.refundInfo}>
+              Caso tenha algum problema com seu pedido, você pode solicitar reembolso para cada vendedor.
+            </Text>
+            {payments
+              .filter(p => p.status === 'completed')
+              .map((payment) => (
+                <View key={payment.id} style={styles.refundPaymentCard}>
+                  <View style={styles.refundPaymentInfo}>
+                    <Text style={styles.refundSellerName}>{payment.seller_name}</Text>
+                    <Text style={styles.refundAmount}>R$ {Number(payment.amount).toFixed(2)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.refundButton}
+                    onPress={() => handleRefundRequest(payment)}
+                  >
+                    <Ionicons name="return-down-back" size={16} color="#D4AF37" />
+                    <Text style={styles.refundButtonText}>Solicitar</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            {payments.filter(p => p.status === 'refunded').length > 0 && (
+              <View style={styles.refundedSection}>
+                <Text style={styles.refundedTitle}>Reembolsados:</Text>
+                {payments
+                  .filter(p => p.status === 'refunded')
+                  .map((payment) => (
+                    <View key={payment.id} style={styles.refundedItem}>
+                      <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                      <Text style={styles.refundedText}>
+                        {payment.seller_name} - R$ {Number(payment.amount).toFixed(2)}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -493,5 +556,70 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 16,
     color: '#333',
+  },
+  refundInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  refundPaymentCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  refundPaymentInfo: {
+    flex: 1,
+  },
+  refundSellerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  refundAmount: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  refundButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#D4AF37',
+    borderRadius: 6,
+    gap: 4,
+  },
+  refundButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D4AF37',
+  },
+  refundedSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  refundedTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+  },
+  refundedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  refundedText: {
+    fontSize: 14,
+    color: '#4CAF50',
   },
 });

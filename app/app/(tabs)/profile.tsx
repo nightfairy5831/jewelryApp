@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { router } from 'expo-router';
 import { API_CONFIG } from '../../config/api';
+import type { WishlistItem } from '../../services/api';
 
 const userIcon = require('../../assets/user.png');
 
@@ -19,17 +20,40 @@ interface PurchasedProduct {
 }
 
 export default function PerfilScreen() {
-  const { logout, authToken } = useAppStore();
+  const { logout, authToken, wishlist, fetchWishlist, removeFromWishlist } = useAppStore();
   const { user: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<'wishes' | 'shopping' | 'message'>('shopping');
   const [purchasedProducts, setPurchasedProducts] = useState<PurchasedProduct[]>([]);
   const [loading, setLoading] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   useEffect(() => {
     if (authToken && activeTab === 'shopping') {
       fetchPurchasedProducts();
     }
+    if (authToken && activeTab === 'wishes') {
+      loadWishlist();
+    }
   }, [authToken, activeTab]);
+
+  const loadWishlist = async () => {
+    setWishlistLoading(true);
+    try {
+      await fetchWishlist();
+    } catch (error) {
+      console.error('Error fetching wishlist:', error);
+    } finally {
+      setWishlistLoading(false);
+    }
+  };
+
+  const handleRemoveFromWishlist = async (productId: number) => {
+    try {
+      await removeFromWishlist(productId);
+    } catch (error) {
+      console.error('Error removing from wishlist:', error);
+    }
+  };
 
   const fetchPurchasedProducts = async () => {
     if (!authToken) return;
@@ -66,10 +90,11 @@ export default function PerfilScreen() {
           onPress: async () => {
             try {
               await logout();
-              // Explicitly navigate to index to avoid staying on seller-dashboard
-              router.replace('/(tabs)');
             } catch (error) {
               console.error('Logout failed:', error);
+            } finally {
+              // Always navigate to home after logout attempt
+              router.replace('/(tabs)');
             }
           },
         },
@@ -151,6 +176,58 @@ export default function PerfilScreen() {
     );
   };
 
+  const renderWishlistTab = () => {
+    if (wishlistLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      );
+    }
+
+    if (wishlist.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="heart-outline" size={64} color="#d1d5db" />
+          <Text style={styles.emptyStateText}>Nenhum desejo salvo</Text>
+          <TouchableOpacity
+            style={styles.shopNowButton}
+            onPress={() => router.push('/(tabs)')}
+          >
+            <Text style={styles.shopNowButtonText}>Explorar produtos</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.wishlistGrid}>
+        {wishlist.map((item) => (
+          <View key={item.id} style={styles.wishlistCard}>
+            <Image
+              source={{ uri: item.product?.thumbnail || item.product?.images?.[0] || 'https://via.placeholder.com/150' }}
+              style={styles.wishlistImage}
+            />
+            <TouchableOpacity
+              style={styles.removeWishlistButton}
+              onPress={() => handleRemoveFromWishlist(item.product_id)}
+            >
+              <Ionicons name="heart" size={20} color="#ef4444" />
+            </TouchableOpacity>
+            <View style={styles.wishlistInfo}>
+              <Text style={styles.wishlistProductName} numberOfLines={2}>
+                {item.product?.name || 'Produto'}
+              </Text>
+              <Text style={styles.wishlistPrice}>
+                R$ {item.product?.price?.toFixed(2) || '0.00'}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -203,12 +280,7 @@ export default function PerfilScreen() {
 
         <View style={styles.tabContent}>
           {activeTab === 'shopping' && renderShoppingTab()}
-          {activeTab === 'wishes' && (
-            <View style={styles.emptyState}>
-              <Ionicons name="heart-outline" size={64} color="#d1d5db" />
-              <Text style={styles.emptyStateText}>Nenhum desejo salvo</Text>
-            </View>
-          )}
+          {activeTab === 'wishes' && renderWishlistTab()}
           {activeTab === 'message' && (
             <View style={styles.emptyState}>
               <Ionicons name="chatbubble-outline" size={64} color="#d1d5db" />
@@ -344,4 +416,55 @@ const styles = StyleSheet.create({
     borderColor: '#3b82f6',
   },
   registerButtonText: { color: '#3b82f6', fontSize: 18, fontWeight: 'bold' },
+  shopNowButton: {
+    marginTop: 16,
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  shopNowButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  wishlistGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  wishlistCard: {
+    width: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  wishlistImage: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#f0f0f0',
+  },
+  removeWishlistButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
+    padding: 6,
+  },
+  wishlistInfo: {
+    padding: 10,
+  },
+  wishlistProductName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  wishlistPrice: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#000',
+  },
 });

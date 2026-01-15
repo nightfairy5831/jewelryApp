@@ -25,6 +25,11 @@ export interface User {
   phone?: string;
   role: 'buyer' | 'seller' | 'admin';
   avatar?: string;
+  seller_status?: 'pending' | 'approved' | 'rejected' | 'inactive' | null;
+  seller_approved?: boolean;
+  mercadopago_connected?: boolean;
+  mercadopago_user_id?: string | null;
+  is_active?: boolean;
   createdAt?: string;
 }
 
@@ -616,32 +621,190 @@ export const orderApi = {
   },
 };
 
-// Payment API
+// Payment API - Destination Charges (per-seller payments)
+export interface CardDetails {
+  card_number: string;
+  expiration_month: string;
+  expiration_year: string;
+  security_code: string;
+  cardholder_name: string;
+  cardholder_document?: string; // CPF
+}
+
+export interface SellerPayment {
+  payment_id: number;
+  seller_id: number;
+  seller_name: string;
+  amount: number;
+  application_fee: number;
+  status: 'pending' | 'completed' | 'failed';
+  pix_qr_code?: string;
+  pix_qr_code_base64?: string;
+  init_point?: string;
+}
+
+export interface PaymentIntentResponse {
+  order_id: number;
+  status: 'pending' | 'completed' | 'partial_failure';
+  payment_method: 'credit_card' | 'pix';
+  payments: SellerPayment[];
+  total_amount: number;
+}
+
+export interface OrderPaymentStatus {
+  order_id: number;
+  order_status: string;
+  payments: {
+    id: number;
+    seller_id: number;
+    seller_name: string;
+    amount: number;
+    application_fee: number;
+    status: string;
+    payment_method: string;
+    paid_at: string | null;
+  }[];
+  all_completed: boolean;
+}
+
 export const paymentApi = {
-  createPaymentIntent: async (token: string, orderId: number): Promise<{ preference_id: string; init_point: string; sandbox_init_point: string; payment: Payment }> => {
-    return await apiCall<{ preference_id: string; init_point: string; sandbox_init_point: string; payment: Payment }>('/payments/create-intent', {
+  // Create payment intent with destination charges (per-seller)
+  createPaymentIntent: async (
+    token: string,
+    orderId: number,
+    paymentMethod: 'credit_card' | 'pix',
+    cardDetails?: CardDetails
+  ): Promise<PaymentIntentResponse> => {
+    const body: any = {
+      order_id: orderId,
+      payment_method: paymentMethod,
+    };
+
+    if (paymentMethod === 'credit_card' && cardDetails) {
+      body.card_number = cardDetails.card_number;
+      body.expiration_month = cardDetails.expiration_month;
+      body.expiration_year = cardDetails.expiration_year;
+      body.security_code = cardDetails.security_code;
+      body.cardholder_name = cardDetails.cardholder_name;
+      body.cardholder_document = cardDetails.cardholder_document;
+    }
+
+    return await apiCall<PaymentIntentResponse>('/payments/create-intent', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ order_id: orderId }),
+      body: JSON.stringify(body),
     });
   },
 
-  getPaymentStatus: async (token: string, paymentId: number): Promise<Payment> => {
-    return await apiCall<Payment>(`/payments/${paymentId}/status`, {
+  // Get payment status for an order (shows all per-seller payments)
+  getOrderPaymentStatus: async (token: string, orderId: number): Promise<OrderPaymentStatus> => {
+    return await apiCall<OrderPaymentStatus>(`/payments/order/${orderId}/status`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
   },
 
-  retryPayment: async (token: string, paymentId: number): Promise<{ message: string; payment: Payment }> => {
-    return await apiCall<{ message: string; payment: Payment }>(`/payments/${paymentId}/retry`, {
+  // Retry a failed payment
+  retryPayment: async (token: string, paymentId: number): Promise<{ message: string; payment_id: number; order_id: number }> => {
+    return await apiCall<{ message: string; payment_id: number; order_id: number }>(`/payments/${paymentId}/retry`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
       },
+    });
+  },
+};
+
+// Refund Request API
+export type RefundReason = 'defective_product' | 'wrong_item' | 'not_as_described' | 'changed_mind' | 'late_delivery' | 'other';
+
+export interface RefundRequest {
+  id: number;
+  payment_id: number;
+  order_number: string | null;
+  seller_name: string;
+  amount: number;
+  reason: RefundReason;
+  description: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'refunded';
+  seller_response: string | null;
+  responded_at: string | null;
+  refunded_at: string | null;
+  created_at: string;
+}
+
+export interface SellerRefundRequest extends RefundRequest {
+  buyer_name: string;
+  buyer_email: string | null;
+  application_fee: number;
+  return_platform_fee: boolean;
+}
+
+export const refundApi = {
+  // Buyer: Get my refund requests
+  getMyRefunds: async (token: string): Promise<{ refund_requests: RefundRequest[] }> => {
+    return await apiCall<{ refund_requests: RefundRequest[] }>('/refunds', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+
+  // Buyer: Create a refund request
+  createRefundRequest: async (
+    token: string,
+    paymentId: number,
+    reason: RefundReason,
+    description?: string
+  ): Promise<{ message: string; refund_request: RefundRequest }> => {
+    return await apiCall<{ message: string; refund_request: RefundRequest }>('/refunds', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ payment_id: paymentId, reason, description }),
+    });
+  },
+
+  // Seller: Get refund requests for my payments
+  getSellerRefunds: async (token: string): Promise<{ refund_requests: SellerRefundRequest[] }> => {
+    return await apiCall<{ refund_requests: SellerRefundRequest[] }>('/seller/refunds', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+
+  // Seller: Approve a refund request
+  approveRefund: async (
+    token: string,
+    refundId: number,
+    response?: string
+  ): Promise<{ message: string; refund_request: SellerRefundRequest }> => {
+    return await apiCall<{ message: string; refund_request: SellerRefundRequest }>(`/seller/refunds/${refundId}/approve`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ response }),
+    });
+  },
+
+  // Seller: Reject a refund request
+  rejectRefund: async (
+    token: string,
+    refundId: number,
+    response: string
+  ): Promise<{ message: string; refund_request: SellerRefundRequest }> => {
+    return await apiCall<{ message: string; refund_request: SellerRefundRequest }>(`/seller/refunds/${refundId}/reject`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ response }),
     });
   },
 };
@@ -804,6 +967,34 @@ export const sellerApi = {
       body: JSON.stringify({ tracking_number: trackingNumber }),
     });
   },
+
+  // Get Mercado Pago OAuth URL
+  getMercadoPagoOAuthUrl: async (token: string): Promise<{ oauth_url: string }> => {
+    return await apiCall<{ oauth_url: string }>('/seller/mercadopago/oauth-url', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+
+  // Get Mercado Pago connection status
+  getMercadoPagoStatus: async (token: string): Promise<{ connected: boolean; user_id: string | null }> => {
+    return await apiCall<{ connected: boolean; user_id: string | null }>('/seller/mercadopago/status', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
+
+  // Disconnect Mercado Pago account
+  disconnectMercadoPago: async (token: string): Promise<{ message: string }> => {
+    return await apiCall<{ message: string }>('/seller/mercadopago/disconnect', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  },
 };
 
 // Gold Price API
@@ -869,6 +1060,7 @@ export default {
   cartApi,
   orderApi,
   paymentApi,
+  refundApi,
   wishlistApi,
   sellerApi,
   goldPriceApi,

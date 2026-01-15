@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ExpoLinking from 'expo-linking';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi, type SellerDashboard } from '../../services/api';
@@ -26,16 +29,68 @@ export default function SellerDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mpStatus, setMpStatus] = useState<{ connected: boolean; user_id: string | null }>({ connected: false, user_id: null });
+  const [mpLoading, setMpLoading] = useState(false);
+
+  // Check if seller can perform actions (must be approved and have MP connected)
+  const isApproved = currentUser?.seller_status === 'approved';
+  const canPerformActions = isApproved && mpStatus.connected;
+
+  const fetchMpStatus = useCallback(async () => {
+    if (!authToken) return;
+    try {
+      const status = await sellerApi.getMercadoPagoStatus(authToken);
+      setMpStatus(status);
+    } catch (err) {
+      console.error('Error fetching MP status:', err);
+    }
+  }, [authToken]);
 
   useEffect(() => {
     // Only fetch dashboard if user is authenticated AND is a seller
     if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
       fetchDashboard();
+      fetchMpStatus();
     } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
       // Stop loading if not authenticated or not a seller (let _layout.tsx handle redirect)
       setLoading(false);
     }
   }, [isAuthenticated, authToken, currentUser]);
+
+  // Handle deep links for Mercado Pago OAuth callback
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      const url = event.url;
+      if (url.includes('mercadopago-success')) {
+        Alert.alert(
+          'Sucesso!',
+          'Sua conta do Mercado Pago foi conectada com sucesso.',
+          [{ text: 'OK' }]
+        );
+        fetchMpStatus();
+      } else if (url.includes('mercadopago-error')) {
+        Alert.alert(
+          'Erro',
+          'Houve um problema ao conectar sua conta do Mercado Pago. Tente novamente.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    // Check if app was opened with a deep link
+    ExpoLinking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    // Listen for incoming deep links
+    const subscription = ExpoLinking.addEventListener('url', handleDeepLink);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const fetchDashboard = async () => {
     if (!authToken) return;
@@ -64,6 +119,48 @@ export default function SellerDashboardScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboard();
+    fetchMpStatus();
+  };
+
+  const handleConnectMercadoPago = async () => {
+    if (!authToken) return;
+
+    setMpLoading(true);
+    try {
+      const { oauth_url } = await sellerApi.getMercadoPagoOAuthUrl(authToken);
+      await Linking.openURL(oauth_url);
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Falha ao conectar com Mercado Pago');
+    } finally {
+      setMpLoading(false);
+    }
+  };
+
+  const handleDisconnectMercadoPago = () => {
+    Alert.alert(
+      'Desconectar Mercado Pago',
+      'Tem certeza que deseja desconectar sua conta do Mercado Pago? Você não poderá receber pagamentos até reconectar.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desconectar',
+          style: 'destructive',
+          onPress: async () => {
+            if (!authToken) return;
+            setMpLoading(true);
+            try {
+              await sellerApi.disconnectMercadoPago(authToken);
+              setMpStatus({ connected: false, user_id: null });
+              Alert.alert('Sucesso', 'Conta do Mercado Pago desconectada');
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao desconectar');
+            } finally {
+              setMpLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!isAuthenticated) {
@@ -137,6 +234,81 @@ export default function SellerDashboardScreen() {
           <GoldPriceIndicator />
         </View>
 
+        {/* Status Banner - Show when not approved or MP not connected */}
+        {(!isApproved || !mpStatus.connected) && (
+          <View style={styles.statusBanner}>
+            <View style={styles.statusBannerContent}>
+              <Ionicons
+                name={!mpStatus.connected ? "card-outline" : "time-outline"}
+                size={24}
+                color={!mpStatus.connected ? "#dc2626" : "#ca8a04"}
+              />
+              <View style={styles.statusBannerText}>
+                <Text style={styles.statusBannerTitle}>
+                  {!mpStatus.connected
+                    ? "Conecte sua conta Mercado Pago"
+                    : "Aguardando aprovação"}
+                </Text>
+                <Text style={styles.statusBannerDescription}>
+                  {!mpStatus.connected
+                    ? "Você precisa conectar sua conta para receber pagamentos e ser aprovado como vendedor."
+                    : "Sua conta está em análise. Você poderá gerenciar produtos após aprovação."}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Mercado Pago Connection Card */}
+        <View style={styles.mpCard}>
+          <View style={styles.mpCardHeader}>
+            <View style={styles.mpLogoContainer}>
+              <Ionicons name="card" size={28} color="#009ee3" />
+            </View>
+            <View style={styles.mpCardInfo}>
+              <Text style={styles.mpCardTitle}>Mercado Pago</Text>
+              <Text style={[
+                styles.mpCardStatus,
+                { color: mpStatus.connected ? '#16a34a' : '#dc2626' }
+              ]}>
+                {mpStatus.connected ? 'Conectado' : 'Não conectado'}
+              </Text>
+            </View>
+          </View>
+
+          {mpStatus.connected ? (
+            <View style={styles.mpConnectedInfo}>
+              <Text style={styles.mpUserId}>ID: {mpStatus.user_id}</Text>
+              <TouchableOpacity
+                style={styles.mpDisconnectButton}
+                onPress={handleDisconnectMercadoPago}
+                disabled={mpLoading}
+              >
+                {mpLoading ? (
+                  <ActivityIndicator size="small" color="#dc2626" />
+                ) : (
+                  <Text style={styles.mpDisconnectText}>Desconectar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.mpConnectButton}
+              onPress={handleConnectMercadoPago}
+              disabled={mpLoading}
+            >
+              {mpLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons name="link" size={20} color="#ffffff" />
+                  <Text style={styles.mpConnectText}>Conectar Mercado Pago</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -190,51 +362,103 @@ export default function SellerDashboardScreen() {
           <Text style={styles.sectionTitle}>Ações Rápidas</Text>
 
           <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/seller/product-form')}
+            style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
+            onPress={() => canPerformActions && router.push('/seller/product-form')}
+            disabled={!canPerformActions}
           >
             <View style={styles.actionIconContainer}>
-              <Ionicons name="add-circle" size={32} color="#2563eb" />
+              <Ionicons name="add-circle" size={32} color={canPerformActions ? "#2563eb" : "#9ca3af"} />
             </View>
             <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Adicionar Produto</Text>
+              <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
+                Adicionar Produto
+              </Text>
               <Text style={styles.actionDescription}>
-                Cadastre um novo produto para venda
+                {canPerformActions
+                  ? "Cadastre um novo produto para venda"
+                  : "Conecte o MP e aguarde aprovação"}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            {canPerformActions ? (
+              <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#9ca3af" />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/seller-products')}
+            style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-products')}
+            disabled={!canPerformActions}
           >
             <View style={styles.actionIconContainer}>
-              <Ionicons name="list" size={32} color="#2563eb" />
+              <Ionicons name="list" size={32} color={canPerformActions ? "#2563eb" : "#9ca3af"} />
             </View>
             <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Meus Produtos</Text>
+              <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
+                Meus Produtos
+              </Text>
               <Text style={styles.actionDescription}>
-                Visualize e gerencie seus produtos
+                {canPerformActions
+                  ? "Visualize e gerencie seus produtos"
+                  : "Conecte o MP e aguarde aprovação"}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            {canPerformActions ? (
+              <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#9ca3af" />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/seller-orders')}
+            style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-orders')}
+            disabled={!canPerformActions}
           >
             <View style={styles.actionIconContainer}>
-              <Ionicons name="receipt-outline" size={32} color="#2563eb" />
+              <Ionicons name="receipt-outline" size={32} color={canPerformActions ? "#2563eb" : "#9ca3af"} />
             </View>
             <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Meus Pedidos</Text>
+              <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
+                Meus Pedidos
+              </Text>
               <Text style={styles.actionDescription}>
-                Gerencie pedidos e envios
+                {canPerformActions
+                  ? "Gerencie pedidos e envios"
+                  : "Conecte o MP e aguarde aprovação"}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            {canPerformActions ? (
+              <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#9ca3af" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-refunds')}
+            disabled={!canPerformActions}
+          >
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="return-down-back-outline" size={32} color={canPerformActions ? "#f97316" : "#9ca3af"} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
+                Reembolsos
+              </Text>
+              <Text style={styles.actionDescription}>
+                {canPerformActions
+                  ? "Gerenciar solicitações de reembolso"
+                  : "Conecte o MP e aguarde aprovação"}
+              </Text>
+            </View>
+            {canPerformActions ? (
+              <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#9ca3af" />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -486,5 +710,121 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+  },
+  // Status Banner Styles
+  statusBanner: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  statusBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  statusBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  statusBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  statusBannerDescription: {
+    fontSize: 13,
+    color: '#a16207',
+    lineHeight: 18,
+  },
+  // Mercado Pago Card Styles
+  mpCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  mpCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  mpLogoContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mpCardInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  mpCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  mpCardStatus: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  mpConnectedInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  mpUserId: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  mpDisconnectButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fef2f2',
+  },
+  mpDisconnectText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#dc2626',
+  },
+  mpConnectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#009ee3',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  mpConnectText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  // Disabled Action Card Styles
+  actionCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#f3f4f6',
+  },
+  actionTitleDisabled: {
+    color: '#9ca3af',
   },
 });
