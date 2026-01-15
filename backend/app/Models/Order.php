@@ -57,7 +57,14 @@ class Order extends Model
 
     public function payment()
     {
+        // Legacy: returns first payment for backward compatibility
         return $this->hasOne(Payment::class);
+    }
+
+    public function payments()
+    {
+        // New: returns all payments (one per seller in destination charges model)
+        return $this->hasMany(Payment::class);
     }
 
     public function markAsShipped($trackingNumber = null)

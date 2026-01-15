@@ -5,314 +5,551 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use MercadoPago\MercadoPagoConfig;
-use MercadoPago\Client\Preference\PreferenceClient;
-use MercadoPago\Client\Payment\PaymentClient;
-use MercadoPago\Exceptions\MPApiException;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
-    // Create payment with Mercado Pago (SDK v3)
+    /**
+     * Create payment using Destination Charges (per-seller charges with application_fee)
+     *
+     * Flow:
+     * 1. Buyer enters card info once
+     * 2. For each seller: create card_token + payment using seller's credentials
+     * 3. Platform receives application_fee automatically
+     * 4. Seller is merchant of record (handles disputes)
+     */
     public function createIntent(Request $request)
     {
         try {
             $request->validate([
                 'order_id' => 'required|exists:orders,id',
+                'payment_method' => 'required|in:credit_card,pix',
+                // Card details required for credit_card
+                'card_number' => 'required_if:payment_method,credit_card|string',
+                'expiration_month' => 'required_if:payment_method,credit_card|string',
+                'expiration_year' => 'required_if:payment_method,credit_card|string',
+                'security_code' => 'required_if:payment_method,credit_card|string',
+                'cardholder_name' => 'required_if:payment_method,credit_card|string',
+                'cardholder_document' => 'nullable|string', // CPF
             ]);
 
             $user = Auth::user();
-
-            Log::info('Creating payment intent', [
-                'user_id' => $user->id,
-                'order_id' => $request->order_id,
-            ]);
-
             $order = Order::where('buyer_id', $user->id)
-                ->with('buyer')
+                ->with(['buyer', 'items.seller', 'items.product'])
                 ->findOrFail($request->order_id);
 
-            $payment = Payment::where('order_id', $order->id)->firstOrFail();
+            // Check if order already has completed payments
+            $existingCompleted = Payment::where('order_id', $order->id)
+                ->where('status', 'completed')
+                ->exists();
 
-            if ($payment->status !== 'pending') {
-                return response()->json(['error' => 'Payment already processed'], 400);
+            if ($existingCompleted) {
+                return response()->json(['error' => 'Order already has completed payments'], 400);
             }
 
-            // Initialize Mercado Pago SDK v3
-            $accessToken = config('services.mercadopago.access_token');
+            // Delete any pending/failed payments for retry
+            Payment::where('order_id', $order->id)
+                ->whereIn('status', ['pending', 'failed'])
+                ->delete();
 
-            if (!$accessToken) {
-                Log::error('Mercado Pago access token not configured');
-                return response()->json([
-                    'message' => 'Payment gateway not configured. Please contact support.'
-                ], 500);
-            }
-
-            MercadoPagoConfig::setAccessToken($accessToken);
-
-            $client = new PreferenceClient();
-
-            // Get buyer information
+            $paymentMethod = $request->payment_method;
             $buyer = $order->buyer;
 
-            Log::info('MercadoPago preference data preparation', [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'buyer_name' => $buyer->name,
-                'buyer_email' => $buyer->email,
-                'amount' => $payment->amount,
-                'payment_method' => $payment->payment_method,
-            ]);
+            // Group items by seller
+            $sellerGroups = $order->items->groupBy('seller_id');
 
-            // Create preference data (credit card only)
-            $preferenceData = [
-                'items' => [
-                    [
-                        'title' => "Order #{$order->order_number}",
-                        'quantity' => 1,
-                        'currency_id' => 'BRL',
-                        'unit_price' => (float) $payment->amount,
-                    ]
-                ],
-                'payer' => [
-                    'name' => $buyer->name,
-                    'email' => $buyer->email,
-                ],
-                'payment_methods' => [
-                    'installments' => 12, // Maximum installments allowed
-                    'default_installments' => 1, // Default to 1 installment
-                    'excluded_payment_types' => [
-                        ['id' => 'ticket'],      // Exclude boleto
-                        ['id' => 'atm'],         // Exclude bank debit
-                        ['id' => 'debit_card'],  // Exclude debit cards
-                    ],
-                ],
-                'binary_mode' => false, // Allow pending payments
-                'external_reference' => (string) $order->id,
-                'metadata' => [
+            // Validate all sellers have MP connected
+            foreach ($sellerGroups as $sellerId => $items) {
+                $seller = User::find($sellerId);
+                if (!$seller || !$seller->mercadopago_access_token) {
+                    $sellerName = $seller ? $seller->name : "ID: {$sellerId}";
+                    return response()->json([
+                        'error' => "Seller '{$sellerName}' has not connected their Mercado Pago account. Please contact the seller.",
+                    ], 400);
+                }
+            }
+
+            $paymentsData = [];
+            $allSuccess = true;
+
+            DB::beginTransaction();
+
+            foreach ($sellerGroups as $sellerId => $items) {
+                $seller = User::find($sellerId);
+                $sellerAmount = $items->sum('total_price');
+
+                // Calculate application fee: PIX 8%, Credit Card 10%
+                $feeRate = $paymentMethod === 'pix' ? 0.08 : 0.10;
+                $applicationFee = round($sellerAmount * $feeRate, 2);
+
+                // Create payment record for this seller
+                $payment = Payment::create([
                     'order_id' => $order->id,
+                    'seller_id' => $sellerId,
+                    'payment_method' => $paymentMethod,
+                    'amount' => $sellerAmount,
+                    'application_fee' => $applicationFee,
+                    'status' => 'pending',
+                ]);
+
+                if ($paymentMethod === 'credit_card') {
+                    $result = $this->processCardPayment(
+                        $payment,
+                        $seller,
+                        $buyer,
+                        $order,
+                        $request,
+                        $sellerAmount,
+                        $applicationFee
+                    );
+                } else {
+                    // PIX payment
+                    $result = $this->processPixPayment(
+                        $payment,
+                        $seller,
+                        $buyer,
+                        $order,
+                        $sellerAmount,
+                        $applicationFee
+                    );
+                }
+
+                if (!$result['success']) {
+                    $allSuccess = false;
+                    $payment->update([
+                        'status' => 'failed',
+                        'gateway_response' => $result['error'],
+                    ]);
+                }
+
+                $paymentsData[] = [
                     'payment_id' => $payment->id,
-                ],
-                'notification_url' => config('app.url') . '/api/payments/webhook',
-                'back_urls' => [
-                    'success' => 'perfectjewel://payment-success',
-                    'failure' => 'perfectjewel://payment-failure',
-                    'pending' => 'perfectjewel://payment-pending',
-                ],
-                'auto_return' => 'approved',
-                'statement_descriptor' => 'PERFECT JEWEL',
-            ];
+                    'seller_id' => $sellerId,
+                    'seller_name' => $seller->name,
+                    'amount' => $sellerAmount,
+                    'application_fee' => $applicationFee,
+                    'status' => $payment->fresh()->status,
+                    'pix_qr_code' => $result['pix_qr_code'] ?? null,
+                    'pix_qr_code_base64' => $result['pix_qr_code_base64'] ?? null,
+                    'init_point' => $result['init_point'] ?? null,
+                ];
+            }
 
-            Log::info('Sending preference to MercadoPago', [
-                'preference_data' => $preferenceData,
-                'access_token_prefix' => substr($accessToken, 0, 20),
-            ]);
+            DB::commit();
 
-            $preference = $client->create($preferenceData);
+            // Check overall status
+            $allPayments = Payment::where('order_id', $order->id)->get();
+            $orderStatus = $allPayments->every(fn($p) => $p->status === 'completed')
+                ? 'completed'
+                : ($allPayments->contains(fn($p) => $p->status === 'failed') ? 'partial_failure' : 'pending');
 
-            Log::info('MercadoPago preference response', [
-                'preference_id' => $preference->id,
-                'init_point' => $preference->init_point ?? 'null',
-                'sandbox_init_point' => $preference->sandbox_init_point ?? 'null',
-            ]);
-
-            $payment->update([
-                'transaction_id' => $preference->id,
-                'gateway_response' => [
-                    'preference_id' => $preference->id,
-                    'init_point' => $preference->init_point,
-                    'sandbox_init_point' => $preference->sandbox_init_point,
-                ],
+            Log::info('Destination charges created', [
+                'order_id' => $order->id,
+                'payment_method' => $paymentMethod,
+                'seller_count' => count($sellerGroups),
+                'status' => $orderStatus,
             ]);
 
             return response()->json([
-                'preference_id' => $preference->id,
-                'init_point' => $preference->init_point,
-                'sandbox_init_point' => $preference->sandbox_init_point,
-                'payment' => $payment,
+                'order_id' => $order->id,
+                'status' => $orderStatus,
+                'payment_method' => $paymentMethod,
+                'payments' => $paymentsData,
+                'total_amount' => $order->total_amount,
             ]);
 
-        } catch (MPApiException $e) {
-            Log::error('Mercado Pago payment creation failed', [
-                'message' => $e->getMessage(),
-                'order_id' => $order->id ?? null,
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json([
-                'message' => 'Failed to create payment: ' . $e->getMessage()
-            ], 500);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Payment creation failed', [
                 'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'message' => 'Server Error',
-                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred while processing your payment'
+                'error' => 'Failed to create payment',
+                'message' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
 
-    // Mercado Pago webhook handler (IPN) - SDK v3
+    /**
+     * Process credit card payment using seller's credentials
+     */
+    private function processCardPayment($payment, $seller, $buyer, $order, $request, $amount, $applicationFee)
+    {
+        try {
+            $sellerToken = $seller->mercadopago_access_token;
+
+            // Step 1: Create card token using seller's credentials
+            $cardTokenResponse = Http::withToken($sellerToken)
+                ->post('https://api.mercadopago.com/v1/card_tokens', [
+                    'card_number' => str_replace(' ', '', $request->card_number),
+                    'expiration_month' => $request->expiration_month,
+                    'expiration_year' => $request->expiration_year,
+                    'security_code' => $request->security_code,
+                    'cardholder' => [
+                        'name' => $request->cardholder_name,
+                        'identification' => [
+                            'type' => 'CPF',
+                            'number' => $request->cardholder_document ?? '',
+                        ],
+                    ],
+                ]);
+
+            if (!$cardTokenResponse->successful()) {
+                Log::error('Card token creation failed', [
+                    'seller_id' => $seller->id,
+                    'response' => $cardTokenResponse->json(),
+                ]);
+                return [
+                    'success' => false,
+                    'error' => $cardTokenResponse->json(),
+                ];
+            }
+
+            $cardToken = $cardTokenResponse->json();
+            $payment->update(['card_token_id' => $cardToken['id']]);
+
+            // Step 2: Create payment with application_fee using seller's credentials
+            $paymentData = [
+                'token' => $cardToken['id'],
+                'transaction_amount' => (float) $amount,
+                'description' => "Order #{$order->order_number} - {$seller->name}",
+                'installments' => 1,
+                'payment_method_id' => $this->detectCardBrand($request->card_number),
+                'payer' => [
+                    'email' => $buyer->email,
+                    'first_name' => explode(' ', $buyer->name)[0],
+                    'last_name' => explode(' ', $buyer->name)[1] ?? '',
+                ],
+                'application_fee' => (float) $applicationFee,
+                'statement_descriptor' => 'ALIANCA NOBRE',
+                'notification_url' => config('app.url') . '/api/payments/webhook',
+                'external_reference' => "payment_{$payment->id}",
+                'metadata' => [
+                    'payment_id' => $payment->id,
+                    'order_id' => $order->id,
+                    'seller_id' => $seller->id,
+                ],
+            ];
+
+            $mpPaymentResponse = Http::withToken($sellerToken)
+                ->post('https://api.mercadopago.com/v1/payments', $paymentData);
+
+            if (!$mpPaymentResponse->successful()) {
+                Log::error('MP payment creation failed', [
+                    'seller_id' => $seller->id,
+                    'response' => $mpPaymentResponse->json(),
+                ]);
+                return [
+                    'success' => false,
+                    'error' => $mpPaymentResponse->json(),
+                ];
+            }
+
+            $mpPayment = $mpPaymentResponse->json();
+
+            $payment->update([
+                'mp_payment_id' => $mpPayment['id'],
+                'gateway_response' => $mpPayment,
+                'status' => $mpPayment['status'] === 'approved' ? 'completed' : 'pending',
+                'paid_at' => $mpPayment['status'] === 'approved' ? now() : null,
+            ]);
+
+            // If approved, check if all payments complete
+            if ($mpPayment['status'] === 'approved') {
+                $this->checkOrderCompletion($order);
+            }
+
+            Log::info('Card payment processed', [
+                'payment_id' => $payment->id,
+                'mp_payment_id' => $mpPayment['id'],
+                'status' => $mpPayment['status'],
+                'seller_id' => $seller->id,
+            ]);
+
+            return [
+                'success' => true,
+                'mp_payment' => $mpPayment,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Card payment error', [
+                'seller_id' => $seller->id,
+                'error' => $e->getMessage(),
+            ]);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Process PIX payment using seller's credentials
+     */
+    private function processPixPayment($payment, $seller, $buyer, $order, $amount, $applicationFee)
+    {
+        try {
+            $sellerToken = $seller->mercadopago_access_token;
+
+            $paymentData = [
+                'transaction_amount' => (float) $amount,
+                'description' => "Order #{$order->order_number} - {$seller->name}",
+                'payment_method_id' => 'pix',
+                'payer' => [
+                    'email' => $buyer->email,
+                    'first_name' => explode(' ', $buyer->name)[0],
+                    'last_name' => explode(' ', $buyer->name)[1] ?? '',
+                ],
+                'application_fee' => (float) $applicationFee,
+                'notification_url' => config('app.url') . '/api/payments/webhook',
+                'external_reference' => "payment_{$payment->id}",
+                'metadata' => [
+                    'payment_id' => $payment->id,
+                    'order_id' => $order->id,
+                    'seller_id' => $seller->id,
+                ],
+            ];
+
+            $mpPaymentResponse = Http::withToken($sellerToken)
+                ->post('https://api.mercadopago.com/v1/payments', $paymentData);
+
+            if (!$mpPaymentResponse->successful()) {
+                Log::error('PIX payment creation failed', [
+                    'seller_id' => $seller->id,
+                    'response' => $mpPaymentResponse->json(),
+                ]);
+                return [
+                    'success' => false,
+                    'error' => $mpPaymentResponse->json(),
+                ];
+            }
+
+            $mpPayment = $mpPaymentResponse->json();
+
+            $payment->update([
+                'mp_payment_id' => $mpPayment['id'],
+                'gateway_response' => $mpPayment,
+                'status' => 'pending', // PIX is always pending until paid
+            ]);
+
+            // Extract PIX data
+            $pixData = $mpPayment['point_of_interaction']['transaction_data'] ?? null;
+
+            Log::info('PIX payment created', [
+                'payment_id' => $payment->id,
+                'mp_payment_id' => $mpPayment['id'],
+                'seller_id' => $seller->id,
+            ]);
+
+            return [
+                'success' => true,
+                'mp_payment' => $mpPayment,
+                'pix_qr_code' => $pixData['qr_code'] ?? null,
+                'pix_qr_code_base64' => $pixData['qr_code_base64'] ?? null,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('PIX payment error', [
+                'seller_id' => $seller->id,
+                'error' => $e->getMessage(),
+            ]);
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Detect card brand from card number
+     */
+    private function detectCardBrand($cardNumber)
+    {
+        $number = preg_replace('/\D/', '', $cardNumber);
+
+        if (preg_match('/^4/', $number)) return 'visa';
+        if (preg_match('/^5[1-5]/', $number)) return 'master';
+        if (preg_match('/^3[47]/', $number)) return 'amex';
+        if (preg_match('/^6(?:011|5)/', $number)) return 'discover';
+        if (preg_match('/^(?:2131|1800|35)/', $number)) return 'jcb';
+        if (preg_match('/^3(?:0[0-5]|[68])/', $number)) return 'diners';
+        if (preg_match('/^606282|^3841(?:[0|4|6]{1})0/', $number)) return 'hipercard';
+        if (preg_match('/^(636368|438935|504175|451416|636297)/', $number)) return 'elo';
+
+        return 'visa'; // Default
+    }
+
+    /**
+     * Check if all payments for order are complete
+     */
+    private function checkOrderCompletion($order)
+    {
+        $allPayments = Payment::where('order_id', $order->id)->get();
+        $allCompleted = $allPayments->every(fn($p) => $p->status === 'completed');
+
+        if ($allCompleted) {
+            $order->markAsPaid();
+            $order->update(['stock_reserved' => false]);
+
+            Log::info('Order fully paid via destination charges', [
+                'order_id' => $order->id,
+                'payment_count' => $allPayments->count(),
+            ]);
+        }
+    }
+
+    /**
+     * Webhook handler - receives notifications from seller's MP accounts
+     */
     public function webhook(Request $request)
     {
         try {
-            Log::info('🔔 Mercado Pago webhook received', [
-                'all_data' => $request->all(),
-                'headers' => $request->headers->all(),
-            ]);
+            Log::info('MercadoPago webhook received', ['data' => $request->all()]);
 
-            $type = $request->input('type');
+            if ($request->input('type') !== 'payment') {
+                return response()->json(['status' => 'ignored']);
+            }
 
-            // Handle payment notification
-            if ($type === 'payment') {
-                Log::info('💳 Processing payment webhook');
-                $paymentId = $request->input('data.id');
+            $mpPaymentId = $request->input('data.id');
+            if (!$mpPaymentId) {
+                return response()->json(['status' => 'error'], 400);
+            }
 
-                if (!$paymentId) {
-                    return response()->json(['status' => 'error', 'message' => 'No payment ID'], 400);
-                }
+            // Find payment by mp_payment_id
+            $payment = Payment::where('mp_payment_id', $mpPaymentId)->first();
 
-                // Get payment info from Mercado Pago using SDK v3
-                MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
-                $client = new PaymentClient();
-                $mpPayment = $client->get($paymentId);
-
-                if (!$mpPayment) {
-                    return response()->json(['status' => 'error', 'message' => 'Payment not found'], 404);
-                }
-
-                // Get order from external reference
-                $orderId = $mpPayment->external_reference;
-                $order = Order::find($orderId);
-
-                if (!$order) {
-                    Log::error("Order not found for external reference: {$orderId}");
-                    return response()->json(['status' => 'error', 'message' => 'Order not found'], 404);
-                }
-
-                $payment = Payment::where('order_id', $order->id)->first();
-
-                if (!$payment) {
-                    Log::error("Payment record not found for order: {$orderId}");
-                    return response()->json(['status' => 'error', 'message' => 'Payment record not found'], 404);
-                }
-
-                // Handle payment status
-                Log::info("💰 Payment status from Mercado Pago: {$mpPayment->status}", [
-                    'payment_id' => $mpPayment->id,
-                    'order_id' => $orderId,
-                    'amount' => $mpPayment->transaction_amount ?? null,
+            if (!$payment) {
+                // Try to find by external_reference from any seller
+                // We need to query MP to get the external_reference
+                Log::warning('Payment not found by mp_payment_id, checking sellers', [
+                    'mp_payment_id' => $mpPaymentId,
                 ]);
 
-                switch ($mpPayment->status) {
-                    case 'approved':
-                        Log::info('✅ Payment APPROVED - updating to completed');
-                        $this->handlePaymentSuccess([
-                            'id' => $mpPayment->id,
-                            'status' => $mpPayment->status,
-                            'transaction_id' => $payment->transaction_id,
-                        ]);
-                        break;
+                // Query platform's token first to get external_reference
+                $platformToken = config('services.mercadopago.access_token');
+                $response = Http::withToken($platformToken)
+                    ->get("https://api.mercadopago.com/v1/payments/{$mpPaymentId}");
 
-                    case 'rejected':
-                    case 'cancelled':
-                        Log::info('❌ Payment REJECTED/CANCELLED - updating to failed');
-                        $this->handlePaymentFailure([
-                            'id' => $mpPayment->id,
-                            'status' => $mpPayment->status,
-                            'transaction_id' => $payment->transaction_id,
-                        ]);
-                        break;
+                if ($response->successful()) {
+                    $mpPayment = $response->json();
+                    $externalRef = $mpPayment['external_reference'] ?? '';
 
-                    case 'pending':
-                    case 'in_process':
-                        // Payment is still processing, do nothing
-                        Log::info("⏳ Payment {$mpPayment->id} is {$mpPayment->status}");
-                        break;
+                    if (preg_match('/payment_(\d+)/', $externalRef, $matches)) {
+                        $payment = Payment::find($matches[1]);
+                    }
                 }
+
+                if (!$payment) {
+                    Log::error('Payment not found', ['mp_payment_id' => $mpPaymentId]);
+                    return response()->json(['status' => 'not_found'], 404);
+                }
+            }
+
+            // Get payment details using seller's token
+            $seller = $payment->seller;
+            $sellerToken = $seller ? $seller->mercadopago_access_token : config('services.mercadopago.access_token');
+
+            $response = Http::withToken($sellerToken)
+                ->get("https://api.mercadopago.com/v1/payments/{$mpPaymentId}");
+
+            if (!$response->successful()) {
+                Log::error('Failed to fetch MP payment', ['id' => $mpPaymentId]);
+                return response()->json(['status' => 'error'], 400);
+            }
+
+            $mpPayment = $response->json();
+            $status = $mpPayment['status'];
+
+            Log::info("Webhook payment status: {$status}", [
+                'payment_id' => $payment->id,
+                'mp_payment_id' => $mpPaymentId,
+                'seller_id' => $payment->seller_id,
+            ]);
+
+            if ($status === 'approved') {
+                $payment->markAsCompleted($mpPaymentId, $mpPayment);
+            } elseif (in_array($status, ['rejected', 'cancelled'])) {
+                $payment->markAsFailed($mpPayment);
             }
 
             return response()->json(['status' => 'success']);
 
-        } catch (MPApiException $e) {
-            Log::error('Mercado Pago webhook API error', [
-                'message' => $e->getMessage(),
-                'request' => $request->all(),
-            ]);
-            return response()->json(['error' => 'Webhook processing failed'], 400);
         } catch (\Exception $e) {
-            Log::error('Mercado Pago webhook error: ' . $e->getMessage());
-            return response()->json(['error' => 'Webhook processing failed'], 400);
+            Log::error('Webhook error: ' . $e->getMessage());
+            return response()->json(['status' => 'error'], 500);
         }
     }
 
-    // Handle successful payment
-    private function handlePaymentSuccess($paymentIntent)
-    {
-        $transactionId = $paymentIntent['id'] ?? null;
-
-        $payment = Payment::where('transaction_id', $transactionId)->first();
-
-        if ($payment) {
-            $payment->markAsCompleted($transactionId, $paymentIntent);
-
-            Log::info("Payment completed for order #{$payment->order->order_number}");
-        }
-    }
-
-    // Handle failed payment
-    private function handlePaymentFailure($paymentIntent)
-    {
-        $transactionId = $paymentIntent['id'] ?? null;
-
-        $payment = Payment::where('transaction_id', $transactionId)->first();
-
-        if ($payment) {
-            $payment->markAsFailed($paymentIntent);
-
-            Log::warning("Payment failed for order #{$payment->order->order_number}");
-        }
-    }
-
-    // Get payment status
+    /**
+     * Get payment status for an order
+     */
     public function status($id)
     {
         $user = Auth::user();
 
-        $payment = Payment::with('order')
-            ->whereHas('order', function ($query) use ($user) {
-                $query->where('buyer_id', $user->id);
-            })
-            ->findOrFail($id);
+        // Get all payments for this order
+        $payments = Payment::with(['seller'])
+            ->whereHas('order', fn($q) => $q->where('buyer_id', $user->id))
+            ->where('order_id', $id)
+            ->get();
 
-        return response()->json($payment);
+        if ($payments->isEmpty()) {
+            return response()->json(['error' => 'No payments found'], 404);
+        }
+
+        $order = Order::find($id);
+
+        return response()->json([
+            'order_id' => $id,
+            'order_status' => $order->status,
+            'payments' => $payments->map(fn($p) => [
+                'id' => $p->id,
+                'seller_id' => $p->seller_id,
+                'seller_name' => $p->seller->name ?? 'Unknown',
+                'amount' => $p->amount,
+                'application_fee' => $p->application_fee,
+                'status' => $p->status,
+                'payment_method' => $p->payment_method,
+                'paid_at' => $p->paid_at,
+            ]),
+            'all_completed' => $payments->every(fn($p) => $p->status === 'completed'),
+        ]);
     }
 
-    // Retry failed payment
-    public function retry($id)
+    /**
+     * Retry failed payment for a specific seller
+     */
+    public function retry(Request $request, $id)
     {
         $user = Auth::user();
 
-        $payment = Payment::with('order')
-            ->whereHas('order', function ($query) use ($user) {
-                $query->where('buyer_id', $user->id);
-            })
+        $payment = Payment::with(['order', 'seller'])
+            ->whereHas('order', fn($q) => $q->where('buyer_id', $user->id))
             ->findOrFail($id);
 
         if ($payment->status !== 'failed') {
             return response()->json(['error' => 'Only failed payments can be retried'], 400);
         }
 
-        $payment->update(['status' => 'pending']);
+        // Reset payment for retry
+        $payment->update([
+            'status' => 'pending',
+            'mp_payment_id' => null,
+            'card_token_id' => null,
+            'gateway_response' => null,
+        ]);
 
         return response()->json([
-            'message' => 'Payment retry initiated',
-            'payment' => $payment,
+            'message' => 'Payment reset for retry',
+            'payment_id' => $payment->id,
+            'order_id' => $payment->order_id,
         ]);
     }
+
 }

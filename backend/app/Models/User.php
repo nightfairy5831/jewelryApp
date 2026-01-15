@@ -31,6 +31,10 @@ class User extends Authenticatable implements JWTSubject
         'google_id',
         'avatar_url',
         'is_active',
+        'mercadopago_connected',
+        'mercadopago_user_id',
+        'mercadopago_access_token',
+        'mercadopago_refresh_token',
     ];
 
     /**
@@ -41,6 +45,8 @@ class User extends Authenticatable implements JWTSubject
     protected $hidden = [
         'password',
         'remember_token',
+        'mercadopago_access_token',
+        'mercadopago_refresh_token',
     ];
 
     /**
@@ -57,6 +63,7 @@ class User extends Authenticatable implements JWTSubject
             'seller_requested_at' => 'datetime',
             'seller_approved_at' => 'datetime',
             'is_active' => 'boolean',
+            'mercadopago_connected' => 'boolean',
         ];
     }
 
@@ -117,6 +124,14 @@ class User extends Authenticatable implements JWTSubject
     public function isBuyer(): bool
     {
         return $this->role === 'buyer';
+    }
+
+    /**
+     * Check if seller has connected Mercado Pago account
+     */
+    public function hasMercadoPagoAccount(): bool
+    {
+        return $this->mercadopago_connected && $this->mercadopago_user_id;
     }
 
     /**

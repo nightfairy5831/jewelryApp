@@ -12,7 +12,9 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\SellerController;
+use App\Http\Controllers\Api\SellerSettingsController;
 use App\Http\Controllers\Api\UploadController;
+use App\Http\Controllers\Api\RefundController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -30,6 +32,9 @@ Route::get('/gold-price/current', [GoldPriceController::class, 'getCurrentPrice'
 
 // Mercado Pago webhook (public route - no auth required)
 Route::post('/payments/webhook', [PaymentController::class, 'webhook']);
+
+// Mercado Pago OAuth callback (public - no auth)
+Route::get('/mercadopago/callback', [SellerSettingsController::class, 'handleOAuthCallback']);
 
 // Public Q&A messages (anyone can view)
 Route::get('/messages', [MessageController::class, 'index']);
@@ -84,13 +89,29 @@ Route::middleware('auth:api')->group(function () {
         // Orders
         Route::get('/orders', [SellerController::class, 'orders']);
         Route::patch('/orders/{id}/ship', [OrderController::class, 'markAsShipped']);
+
+        // Mercado Pago OAuth
+        Route::get('/mercadopago/oauth-url', [SellerSettingsController::class, 'getOAuthUrl']);
+        Route::get('/mercadopago/status', [SellerSettingsController::class, 'getStatus']);
+        Route::post('/mercadopago/disconnect', [SellerSettingsController::class, 'disconnect']);
+
+        // Refund management (seller)
+        Route::get('/refunds', [RefundController::class, 'sellerIndex']);
+        Route::post('/refunds/{id}/approve', [RefundController::class, 'approve']);
+        Route::post('/refunds/{id}/reject', [RefundController::class, 'reject']);
     });
 
     // Payment routes
     Route::prefix('payments')->group(function () {
         Route::post('/create-intent', [PaymentController::class, 'createIntent']);
         Route::post('/{id}/retry', [PaymentController::class, 'retry']);
-        Route::get('/{id}/status', [PaymentController::class, 'status']);
+        Route::get('/order/{orderId}/status', [PaymentController::class, 'status']);
+    });
+
+    // Refund routes (buyer)
+    Route::prefix('refunds')->group(function () {
+        Route::get('/', [RefundController::class, 'buyerIndex']);
+        Route::post('/', [RefundController::class, 'store']);
     });
 
     // Wishlist routes

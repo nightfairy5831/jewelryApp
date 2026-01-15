@@ -36,12 +36,17 @@ class SellerSeeder extends Seeder
                 'password' => Hash::make('password123'),
                 'role' => 'seller',
                 'seller_status' => 'approved',
-                'seller_approved' => true, 
+                'seller_approved' => false,
                 'seller_approved_at' => now(),
+                // Mercado Pago - sellers must connect via OAuth to receive payments
+                'mercadopago_connected' => false,
+                'mercadopago_user_id' => null,
+                'mercadopago_access_token' => null,
+                'mercadopago_refresh_token' => null,
                 'is_active' => true,
             ]);
         }
 
-        echo "Created " . count($sellers) . " sellers successfully!\n";
+        echo "Created " . count($sellers) . " sellers (MP not connected - use OAuth to connect)\n";
     }
 }
