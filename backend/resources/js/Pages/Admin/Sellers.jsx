@@ -2,7 +2,7 @@ import AdminLayout from '@/layouts/AdminLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { Input } from '@/components/ui/input';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
-import { CheckCircle, XCircle, UserX, UserCheck, MoreVertical } from 'lucide-react';
+import { CheckCircle, XCircle, UserX, UserCheck, MoreVertical, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 
 const route = window.route;
@@ -250,6 +250,9 @@ export default function Sellers({ sellers, filters }) {
                                         Status
                                     </th>
                                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                                        Mercado Pago
+                                    </th>
+                                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
                                         Data de Cadastro
                                     </th>
                                     <th className="px-6 py-4 text-right text-sm font-semibold text-gray-700">
@@ -260,7 +263,7 @@ export default function Sellers({ sellers, filters }) {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {sellers.length === 0 ? (
                                     <tr>
-                                        <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
                                             Nenhum vendedor encontrado.
                                         </td>
                                     </tr>
@@ -288,8 +291,13 @@ function SellerRow({ seller, getStatus, isSelected, onToggleSelect }) {
     const { post, processing } = useForm();
     const status = getStatus(seller);
     const isPending = seller.role === 'buyer' && seller.seller_requested_at;
+    const hasMpConnected = seller.mercadopago_connected && seller.mercadopago_user_id;
 
     const handleApprove = () => {
+        if (!hasMpConnected) {
+            alert('O vendedor precisa conectar sua conta do Mercado Pago antes de ser aprovado.');
+            return;
+        }
         post(route('admin.sellers.approve', { seller: seller.id }), {
             preserveScroll: true,
         });
@@ -342,6 +350,14 @@ function SellerRow({ seller, getStatus, isSelected, onToggleSelect }) {
                 </span>
             </td>
             <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                    <CreditCard className={`w-4 h-4 ${hasMpConnected ? 'text-green-600' : 'text-gray-400'}`} />
+                    <span className={`text-xs font-medium ${hasMpConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                        {hasMpConnected ? 'Conectado' : 'Não conectado'}
+                    </span>
+                </div>
+            </td>
+            <td className="px-6 py-4">
                 <div className="text-sm text-gray-600">
                     {new Date(seller.created_at).toLocaleDateString('pt-BR')}
                 </div>
@@ -359,10 +375,12 @@ function SellerRow({ seller, getStatus, isSelected, onToggleSelect }) {
                 >
                     <DropdownItem
                         onClick={handleApprove}
-                        variant="success"
+                        variant={hasMpConnected ? "success" : "disabled"}
                         icon={CheckCircle}
+                        disabled={!hasMpConnected}
+                        title={!hasMpConnected ? "Vendedor precisa conectar Mercado Pago" : ""}
                     >
-                        Aprovar
+                        {hasMpConnected ? 'Aprovar' : 'Aprovar (MP não conectado)'}
                     </DropdownItem>
                     <DropdownItem
                         onClick={handleReject}

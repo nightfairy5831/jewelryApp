@@ -50,6 +50,13 @@ class SellerController extends Controller
      */
     public function approve(User $seller)
     {
+        // Check if seller has connected Mercado Pago account
+        if (!$seller->mercadopago_connected || !$seller->mercadopago_user_id) {
+            return redirect()
+                ->route('admin.sellers.index')
+                ->with('error', 'O vendedor precisa conectar sua conta do Mercado Pago antes de ser aprovado.');
+        }
+
         $seller->update([
             'role' => 'seller',
             'seller_status' => 'approved',

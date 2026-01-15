@@ -16,6 +16,8 @@ return new class extends Migration
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->enum('payment_method', ['pix', 'credit_card', 'boleto']);
             $table->decimal('amount', 10, 2);
+            $table->decimal('product_amount', 10, 2);
+            $table->decimal('platform_fee', 10, 2)->default(0);
             $table->enum('status', ['pending', 'completed', 'failed', 'refunded'])->default('pending');
             $table->string('transaction_id')->nullable();
             $table->json('gateway_response')->nullable();
