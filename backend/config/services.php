@@ -36,11 +36,17 @@ return [
     ],
 
     'mercadopago' => [
+        'mode' => env('MERCADOPAGO_MODE', 'production'),
         'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
         'client_id' => env('MERCADOPAGO_CLIENT_ID'),
         'client_secret' => env('MERCADOPAGO_CLIENT_SECRET'),
         'redirect_uri' => env('APP_URL') . '/api/mercadopago/callback',
+    ],
+
+    'apponlog' => [
+        'base_url' => env('APPONLOG_BASE_URL', 'https://api.apponlog.com.br'),
+        'api_key' => env('APPONLOG_API_KEY'),
     ],
 
 ];

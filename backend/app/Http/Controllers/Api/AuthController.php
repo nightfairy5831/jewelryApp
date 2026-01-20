@@ -97,21 +97,8 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Check if seller is approved (support both old and new approval fields)
-        if ($user->role === 'seller') {
-            $isApproved = $user->seller_approved || $user->seller_status === 'approved';
-
-            if (!$isApproved) {
-                // Logout to invalidate token
-                auth()->logout();
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Your seller account is pending approval. Please wait for admin approval.',
-                    'seller_status' => $user->seller_status ?? 'pending'
-                ], 403);
-            }
-        }
+        // Allow sellers to login regardless of approval status
+        // They can access their dashboard but certain features may be restricted based on seller_status
 
         return response()->json([
             'success' => true,

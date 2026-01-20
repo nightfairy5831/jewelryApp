@@ -13,7 +13,7 @@ Route::get('/', function () {
 
         if ($user->isSuperAdmin()) {
             return redirect()->route('admin.dashboard');
-        } elseif ($user->role === 'seller' && $user->seller_status === 'approved') {
+        } elseif ($user->role === 'seller') {
             return redirect()->route('seller.dashboard');
         } elseif ($user->role === 'buyer') {
             return redirect()->route('buyer.dashboard');

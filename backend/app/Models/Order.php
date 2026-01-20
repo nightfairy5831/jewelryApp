@@ -17,7 +17,9 @@ class Order extends Model
         'shipping_amount',
         'shipping_address',
         'tracking_number',
+        'cancellation_reason',
         'paid_at',
+        'accepted_at',
         'shipped_at',
         'stock_reserved',
         'reserved_until',
@@ -29,6 +31,7 @@ class Order extends Model
         'shipping_amount' => 'decimal:2',
         'shipping_address' => 'json',
         'paid_at' => 'datetime',
+        'accepted_at' => 'datetime',
         'shipped_at' => 'datetime',
         'stock_reserved' => 'boolean',
         'reserved_until' => 'datetime',
@@ -84,6 +87,27 @@ class Order extends Model
             'status' => 'confirmed',
             'paid_at' => now(),
         ]);
+    }
+
+    public function acceptOrder()
+    {
+        $this->update([
+            'status' => 'accepted',
+            'accepted_at' => now(),
+        ]);
+    }
+
+    public function rejectOrder($reason)
+    {
+        $this->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => $reason,
+        ]);
+
+        // Restore stock when seller rejects
+        foreach ($this->items as $item) {
+            $item->product->increment('stock_quantity', $item->quantity);
+        }
     }
 
     public static function generateOrderNumber()
