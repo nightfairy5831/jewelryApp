@@ -111,9 +111,17 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Check if user is seller (approved seller)
+     * Check if user is seller (includes pending sellers)
      */
     public function isSeller(): bool
+    {
+        return $this->role === 'seller';
+    }
+
+    /**
+     * Check if seller is approved
+     */
+    public function isApprovedSeller(): bool
     {
         return $this->role === 'seller' && ($this->seller_approved || $this->seller_status === 'approved');
     }
