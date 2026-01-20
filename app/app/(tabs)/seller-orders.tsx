@@ -17,36 +17,8 @@ import { useRouter } from 'expo-router';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi } from '../../services/api';
-
-interface OrderItem {
-  id: number;
-  product_id: number;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product?: {
-    id: number;
-    name: string;
-  };
-}
-
-interface Order {
-  id: number;
-  order_number: string;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  total_amount: number;
-  tracking_number?: string;
-  created_at: string;
-  buyer?: {
-    name: string;
-    email: string;
-  };
-  items: OrderItem[];
-  payment?: {
-    payment_method: string;
-    status: string;
-  };
-}
+import type { Order } from '../../services/api';
+import OrderCard from '../../components/order/OrderCard';
 
 export default function SellerOrdersScreen() {
   const router = useRouter();
@@ -57,12 +29,14 @@ export default function SellerOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Modal states
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [shippingModalVisible, setShippingModalVisible] = useState(false);
-  const [trackingNumber, setTrackingNumber] = useState('');
-  const [shippingLoading, setShippingLoading] = useState(false);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
   useEffect(() => {
     if (authToken) {
@@ -76,15 +50,12 @@ export default function SellerOrdersScreen() {
     try {
       setError(null);
       const filters: any = {};
-
       if (filterStatus !== 'all') {
         filters.status = filterStatus;
       }
-
       const response = await sellerApi.getOrders(authToken, filters);
       setOrders(response.data || []);
     } catch (err: any) {
-      console.error('Error fetching orders:', err);
       setError(err.message || 'Falha ao carregar pedidos');
     } finally {
       setLoading(false);
@@ -97,69 +68,69 @@ export default function SellerOrdersScreen() {
     fetchOrders();
   };
 
-  const handleMarkAsShipped = (order: Order) => {
-    setSelectedOrder(order);
-    setTrackingNumber('');
-    setShippingModalVisible(true);
-  };
-
-  const confirmShipping = async () => {
-    if (!authToken || !selectedOrder) return;
-
-    setShippingLoading(true);
+  const handleAccept = async (order: Order) => {
+    if (!authToken) return;
+    setActionLoading(order.id);
 
     try {
-      await sellerApi.markAsShipped(
-        authToken,
-        selectedOrder.id,
-        trackingNumber.trim() || undefined
-      );
-
-      Alert.alert('Sucesso!', 'Pedido marcado como enviado');
-      setShippingModalVisible(false);
-      setSelectedOrder(null);
-      setTrackingNumber('');
+      await sellerApi.acceptOrder(authToken, order.id);
+      Alert.alert('Sucesso!', 'Pedido aceito! Agora você pode confeccionar o produto.');
       fetchOrders();
     } catch (err: any) {
-      console.error('Error marking as shipped:', err);
-      Alert.alert('Erro', err.message || 'Falha ao marcar como enviado');
+      Alert.alert('Erro', err.message || 'Falha ao aceitar pedido');
     } finally {
-      setShippingLoading(false);
+      setActionLoading(null);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return '#f97316';
-      case 'confirmed':
-        return '#2563eb';
-      case 'shipped':
-        return '#7c3aed';
-      case 'delivered':
-        return '#16a34a';
-      case 'cancelled':
-        return '#dc2626';
-      default:
-        return '#6b7280';
+  const handleReject = (order: Order) => {
+    setSelectedOrder(order);
+    setRejectReason('');
+    setRejectModalVisible(true);
+  };
+
+  const confirmReject = async () => {
+    if (!authToken || !selectedOrder) return;
+
+    if (!rejectReason.trim()) {
+      Alert.alert('Erro', 'Digite o motivo da recusa');
+      return;
+    }
+
+    setActionLoading(selectedOrder.id);
+
+    try {
+      await sellerApi.rejectOrder(authToken, selectedOrder.id, rejectReason.trim());
+      Alert.alert('Pedido Recusado', 'O comprador será notificado.');
+      setRejectModalVisible(false);
+      setSelectedOrder(null);
+      setRejectReason('');
+      fetchOrders();
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Falha ao recusar pedido');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'Pendente';
-      case 'confirmed':
-        return 'Confirmado';
-      case 'shipped':
-        return 'Enviado';
-      case 'delivered':
-        return 'Entregue';
-      case 'cancelled':
-        return 'Cancelado';
-      default:
-        return status;
+  const handleShip = async (order: Order, trackingNumber: string) => {
+    if (!authToken) return;
+    setActionLoading(order.id);
+
+    try {
+      await sellerApi.markAsShipped(authToken, order.id, trackingNumber);
+      Alert.alert('Sucesso!', 'Produto enviado com sucesso');
+      fetchOrders();
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Falha ao enviar produto');
+    } finally {
+      setActionLoading(null);
     }
+  };
+
+  const handleViewAddress = (order: Order) => {
+    setSelectedOrder(order);
+    setAddressModalVisible(true);
   };
 
   if (!currentUser || currentUser.role !== 'seller') {
@@ -196,16 +167,14 @@ export default function SellerOrdersScreen() {
       >
         {[
           { key: 'all', label: 'Todos' },
-          { key: 'pending', label: 'Pendentes' },
-          { key: 'shipped', label: 'Enviados' },
-          { key: 'delivered', label: 'Entregues' },
+          { key: 'confirmed', label: 'Novas' },
+          { key: 'accepted', label: 'Aguardando' },
+          { key: 'shipped', label: 'Postados' },
+          { key: 'delivered', label: 'Concluídos' },
         ].map((filter) => (
           <TouchableOpacity
             key={filter.key}
-            style={[
-              styles.filterTab,
-              filterStatus === filter.key && styles.filterTabActive,
-            ]}
+            style={styles.filterTab}
             onPress={() => {
               setFilterStatus(filter.key);
               setLoading(true);
@@ -227,6 +196,7 @@ export default function SellerOrdersScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
+        contentContainerStyle={styles.ordersContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
         }
@@ -255,139 +225,120 @@ export default function SellerOrdersScreen() {
             </Text>
           </View>
         ) : (
-          <View style={styles.ordersContainer}>
-            {orders.map((order) => (
-              <View key={order.id} style={styles.orderCard}>
-                {/* Order Header */}
-                <View style={styles.orderHeader}>
-                  <View>
-                    <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                    <Text style={styles.orderDate}>
-                      {new Date(order.created_at).toLocaleDateString('pt-BR')}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: `${getStatusColor(order.status)}20` },
-                    ]}
-                  >
-                    <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                      {getStatusLabel(order.status)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Buyer Info */}
-                {order.buyer && (
-                  <View style={styles.buyerInfo}>
-                    <Ionicons name="person-outline" size={16} color="#6b7280" />
-                    <Text style={styles.buyerText}>{order.buyer.name}</Text>
-                  </View>
-                )}
-
-                {/* Order Items */}
-                <View style={styles.itemsContainer}>
-                  {order.items.map((item) => (
-                    <View key={item.id} style={styles.itemRow}>
-                      <Text style={styles.itemName} numberOfLines={1}>
-                        {item.product?.name || `Produto #${item.product_id}`}
-                      </Text>
-                      <Text style={styles.itemQuantity}>x{item.quantity}</Text>
-                      <Text style={styles.itemPrice}>R$ {parseFloat(item.total_price.toString()).toFixed(2)}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Order Total */}
-                <View style={styles.orderTotal}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>
-                    R$ {parseFloat(order.total_amount.toString()).toFixed(2)}
-                  </Text>
-                </View>
-
-                {/* Payment Info */}
-                {order.payment && (
-                  <View style={styles.paymentInfo}>
-                    <Ionicons name="card-outline" size={14} color="#6b7280" />
-                    <Text style={styles.paymentText}>
-                      {order.payment.payment_method.replace('_', ' ')} • {order.payment.status}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Tracking Number */}
-                {order.tracking_number && (
-                  <View style={styles.trackingInfo}>
-                    <Ionicons name="cube-outline" size={14} color="#7c3aed" />
-                    <Text style={styles.trackingText}>
-                      Rastreio: {order.tracking_number}
-                    </Text>
-                  </View>
-                )}
-
-                {/* Action Button */}
-                {order.status === 'confirmed' && (
-                  <TouchableOpacity
-                    style={styles.shipButton}
-                    onPress={() => handleMarkAsShipped(order)}
-                  >
-                    <Ionicons name="send" size={16} color="#ffffff" />
-                    <Text style={styles.shipButtonText}>Marcar como Enviado</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
-          </View>
+          orders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              viewType="seller"
+              onAccept={handleAccept}
+              onReject={handleReject}
+              onShip={handleShip}
+              onViewAddress={handleViewAddress}
+              isLoading={actionLoading === order.id}
+            />
+          ))
         )}
       </ScrollView>
 
-      {/* Shipping Modal */}
+      {/* Reject Modal */}
       <Modal
-        visible={shippingModalVisible}
+        visible={rejectModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setShippingModalVisible(false)}
+        onRequestClose={() => setRejectModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Marcar como Enviado</Text>
-            <Text style={styles.modalSubtitle}>
-              Pedido #{selectedOrder?.order_number}
-            </Text>
+            <Text style={styles.modalTitle}>Recusar Pedido</Text>
+            <Text style={styles.modalSubtitle}>Pedido #{selectedOrder?.order_number}</Text>
 
             <View style={styles.modalInputGroup}>
-              <Text style={styles.modalLabel}>Número de Rastreamento (opcional)</Text>
+              <Text style={styles.modalLabel}>Motivo da recusa *</Text>
               <TextInput
-                style={styles.modalInput}
-                placeholder="Ex: BR123456789BR"
-                value={trackingNumber}
-                onChangeText={setTrackingNumber}
-                editable={!shippingLoading}
+                style={styles.textArea}
+                placeholder="Explique o motivo da recusa para o comprador..."
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                editable={actionLoading !== selectedOrder?.id}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
               />
             </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
-                onPress={() => setShippingModalVisible(false)}
-                disabled={shippingLoading}
+                onPress={() => setRejectModalVisible(false)}
+                disabled={actionLoading === selectedOrder?.id}
               >
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={confirmShipping}
-                disabled={shippingLoading}
+                style={styles.modalRejectButton}
+                onPress={confirmReject}
+                disabled={actionLoading === selectedOrder?.id}
               >
-                {shippingLoading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                {actionLoading === selectedOrder?.id ? (
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Confirmar</Text>
+                  <Text style={styles.modalRejectText}>Recusar</Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Address Modal */}
+      <Modal
+        visible={addressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Endereço de Entrega</Text>
+            <Text style={styles.modalSubtitle}>Pedido #{selectedOrder?.order_number}</Text>
+
+            {selectedOrder?.shipping_address ? (
+              <View style={styles.addressContainer}>
+                <View style={styles.addressRow}>
+                  <Ionicons name="location" size={20} color="#2563eb" />
+                  <View style={styles.addressDetails}>
+                    <Text style={styles.addressStreet}>
+                      {selectedOrder.shipping_address.street}
+                    </Text>
+                    <Text style={styles.addressCity}>
+                      {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state}
+                    </Text>
+                    <Text style={styles.addressPostal}>
+                      CEP: {selectedOrder.shipping_address.postal_code}
+                    </Text>
+                    <Text style={styles.addressCountry}>
+                      {selectedOrder.shipping_address.country}
+                    </Text>
+                  </View>
+                </View>
+
+                {selectedOrder.buyer && (
+                  <View style={styles.buyerDetails}>
+                    <Text style={styles.buyerLabel}>Destinatário:</Text>
+                    <Text style={styles.buyerName}>{selectedOrder.buyer.name}</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.noAddressText}>Endereço não disponível</Text>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setAddressModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Fechar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -404,7 +355,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 16,
     shadowColor: '#000',
@@ -431,40 +382,38 @@ const styles = StyleSheet.create({
     height: 40,
   },
   filterContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
     maxHeight: 44,
   },
   filterContent: {
     paddingHorizontal: 16,
-    gap: 0,
   },
   filterTab: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  filterTabActive: {
-  },
   filterTabText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#6b7280',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
   filterTabTextActive: {
     color: '#2563eb',
     fontWeight: '600',
-    borderBottomColor: '#2563eb',
   },
   content: {
     flex: 1,
+  },
+  ordersContainer: {
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 60,
   },
   loadingText: {
     marginTop: 12,
@@ -491,7 +440,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -514,140 +463,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  ordersContainer: {
-    padding: 16,
-    gap: 12,
-  },
-  orderCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  orderDate: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  buyerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 6,
-  },
-  buyerText: {
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  itemsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-    paddingTop: 12,
-    marginBottom: 12,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  itemName: {
-    flex: 1,
-    fontSize: 13,
-    color: '#374151',
-  },
-  itemQuantity: {
-    fontSize: 13,
-    color: '#6b7280',
-    marginHorizontal: 12,
-  },
-  itemPrice: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  orderTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
-    marginBottom: 12,
-  },
-  totalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  paymentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  paymentText: {
-    fontSize: 12,
-    color: '#6b7280',
-    textTransform: 'capitalize',
-  },
-  trackingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#faf5ff',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  trackingText: {
-    fontSize: 12,
-    color: '#7c3aed',
-    fontWeight: '600',
-  },
-  shipButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#7c3aed',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  shipButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -656,7 +471,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -682,7 +497,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
   },
-  modalInput: {
+  textArea: {
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#e5e7eb',
@@ -691,6 +506,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: '#111827',
+    height: 100,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -708,16 +524,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6b7280',
   },
-  modalConfirmButton: {
+  modalRejectButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
     alignItems: 'center',
   },
-  modalConfirmText: {
+  modalRejectText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
+    color: '#fff',
+  },
+  addressContainer: {
+    marginBottom: 20,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  addressDetails: {
+    flex: 1,
+  },
+  addressStreet: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  addressCity: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 2,
+  },
+  addressPostal: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  addressCountry: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  buyerDetails: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  buyerLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  buyerName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  noAddressText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
 });

@@ -21,6 +21,8 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const { login, isAuthLoading } = useAppStore();
 
@@ -73,16 +75,34 @@ export default function Login() {
             <Text style={styles.title}>Jóia Perfeita</Text>
           </View>
 
+          {/* Google Sign In Button */}
+          <TouchableOpacity style={styles.googleButton}>
+            <Image
+              source={{ uri: 'https://www.google.com/favicon.ico' }}
+              style={styles.googleIcon}
+            />
+            <Text style={styles.googleButtonText}>Entrar com o Google</Text>
+          </TouchableOpacity>
+
+          {/* Divider with lines */}
+          <View style={styles.dividerWithLines}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>ou</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>E-mail</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, emailFocused && styles.inputContainerFocused]}>
               <TextInput
                 style={styles.input}
                 placeholder="Digite seu e-mail"
                 placeholderTextColor="#B3B3B3"
                 value={email}
                 onChangeText={setEmail}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
@@ -92,13 +112,15 @@ export default function Login() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Senha</Text>
-            <View style={styles.inputContainer}>
+            <View style={[styles.inputContainer, passwordFocused && styles.inputContainerFocused]}>
               <TextInput
                 style={styles.input}
                 placeholder="Digite sua senha"
                 placeholderTextColor="#B3B3B3"
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoComplete="password"
@@ -124,17 +146,20 @@ export default function Login() {
               <Text style={styles.buttonText}>Entrar</Text>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Esqueceu sua senha?</Text>
-          </TouchableOpacity>
         </View>
 
+        {/* Bottom Divider Line */}
+        <View style={styles.horizontalDivider} />
+
+        {/* Footer Buttons */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Não tem uma conta? </Text>
+          <TouchableOpacity style={styles.footerButton}>
+            <Text style={styles.footerButtonText}>Recuperar senha</Text>
+          </TouchableOpacity>
+
           <Link href="/auth/register" asChild>
-            <TouchableOpacity>
-              <Text style={styles.link}>Cadastre-se aqui</Text>
+            <TouchableOpacity style={styles.footerButton}>
+              <Text style={styles.footerButtonText}>Criar conta</Text>
             </TouchableOpacity>
           </Link>
         </View>
@@ -195,13 +220,46 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginTop: 8,
   },
-  form: {
-    width: '100%',
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
     borderWidth: 1,
     borderColor: '#D9D9D9',
+    borderRadius: 25,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
+  },
+  googleButtonText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#000000',
+  },
+  dividerWithLines: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5E5',
+  },
+  dividerText: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginHorizontal: 16,
+  },
+  form: {
+    width: '100%',
+    padding: 0,
     marginBottom: 24,
   },
   inputGroup: {
@@ -219,9 +277,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#D9D9D9',
-    borderRadius: 8,
+    borderRadius: 25,
     paddingHorizontal: 16,
-    height: 40,
+    height: 48,
+  },
+  inputContainerFocused: {
+    borderColor: '#F5C518',
+    borderWidth: 2,
+  },
+  horizontalDivider: {
+    height: 1,
+    backgroundColor: '#E5E5E5',
+    marginVertical: 20,
   },
   inputIcon: {
     marginRight: 8,
@@ -251,27 +318,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
   },
-  forgotPassword: {
-    alignItems: 'flex-start',
-    marginTop: 16,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#000000',
-    textDecorationLine: 'underline',
-  },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  footerButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#D9D9D9',
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
   },
-  footerText: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  link: {
+  footerButtonText: {
     fontSize: 14,
     color: '#000000',
-    fontWeight: '600',
+    fontWeight: '400',
   },
 });

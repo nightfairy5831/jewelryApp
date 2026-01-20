@@ -101,12 +101,25 @@ export default function OrderDetailScreen() {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return '#FFA500';
-      case 'confirmed': return '#2196F3';
-      case 'shipped': return '#9C27B0';
-      case 'delivered': return '#4CAF50';
-      case 'cancelled': return '#F44336';
+      case 'pending': return '#9ca3af';
+      case 'confirmed': return '#f97316';
+      case 'accepted': return '#f97316';
+      case 'shipped': return '#2563eb';
+      case 'delivered': return '#16a34a';
+      case 'cancelled': return '#dc2626';
       default: return '#666';
+    }
+  };
+
+  const getStatusLabel = (status: Order['status']) => {
+    switch (status) {
+      case 'pending': return 'Aguardando pagamento';
+      case 'confirmed': return 'Aguardando o vendedor';
+      case 'accepted': return 'Aguardando envio';
+      case 'shipped': return 'Postado';
+      case 'delivered': return 'Concluído';
+      case 'cancelled': return 'Cancelado';
+      default: return status;
     }
   };
 
@@ -118,94 +131,65 @@ export default function OrderDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Details</Text>
+          <Text style={styles.headerTitle}>Detalhes do Pedido</Text>
         </View>
 
         {/* Order Info Card */}
         <View style={styles.card}>
           <View style={styles.orderInfoRow}>
-            <Text style={styles.orderNumber}>#{order.order_number}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
-              <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
+              <Text style={styles.statusTextWhite}>
+                {getStatusLabel(order.status)}
               </Text>
             </View>
+            {order.status === 'cancelled' && order.cancellation_reason && (
+              <TouchableOpacity
+                onPress={() => Alert.alert('Motivo do cancelamento', order.cancellation_reason)}
+              >
+                <Text style={styles.seeReasonText}>Ver motivo</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <Text style={styles.orderDate}>
-            Placed on {new Date(order.created_at).toLocaleDateString('pt-BR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}
+            Compra feita dia {new Date(order.created_at).toLocaleDateString('pt-BR')}
           </Text>
         </View>
 
-        {/* Order Timeline */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Order Status</Text>
-          <View style={styles.timeline}>
-            <View style={styles.timelineItem}>
-              <View style={[styles.timelineDot, order.status !== 'cancelled' && styles.timelineDotActive]} />
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineTitle}>Order Placed</Text>
-                <Text style={styles.timelineDate}>
-                  {new Date(order.created_at).toLocaleString('pt-BR')}
+        {/* Tracking Info - Only for shipped/delivered orders */}
+        {order.tracking_number && ['shipped', 'delivered'].includes(order.status) && (
+          <View style={styles.card}>
+            <View style={styles.trackingContainer}>
+              <View style={styles.trackingInfo}>
+                <Ionicons name="cube-outline" size={20} color="#111827" />
+                <Text style={styles.trackingCode} numberOfLines={1}>
+                  {order.tracking_number}
                 </Text>
               </View>
+              <TouchableOpacity style={styles.trackingButton}>
+                <Text style={styles.trackingButtonText}>Rastreamento</Text>
+              </TouchableOpacity>
             </View>
-
-            {order.paid_at && (
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, styles.timelineDotActive]} />
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>Payment Confirmed</Text>
-                  <Text style={styles.timelineDate}>
-                    {new Date(order.paid_at).toLocaleString('pt-BR')}
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {order.shipped_at && (
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, styles.timelineDotActive]} />
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>Shipped</Text>
-                  <Text style={styles.timelineDate}>
-                    {new Date(order.shipped_at).toLocaleString('pt-BR')}
-                  </Text>
-                  {order.tracking_number && (
-                    <Text style={styles.trackingNumber}>
-                      Tracking: {order.tracking_number}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            )}
-
-            {order.status === 'delivered' && (
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, styles.timelineDotActive]} />
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTitle}>Delivered</Text>
-                </View>
-              </View>
-            )}
-
-            {order.status === 'cancelled' && (
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, { backgroundColor: '#F44336' }]} />
-                <View style={styles.timelineContent}>
-                  <Text style={[styles.timelineTitle, { color: '#F44336' }]}>Cancelled</Text>
-                </View>
-              </View>
-            )}
+            <Text style={styles.trackingHint}>
+              Seu pedido foi postado, confirme quando ele chegar.
+            </Text>
           </View>
+        )}
+
+        {/* Status Message */}
+        <View style={styles.card}>
+          <Text style={styles.statusMessage}>
+            {order.status === 'pending' && 'Aguardando confirmação do pagamento.'}
+            {order.status === 'confirmed' && 'Aguardando o vendedor confirmar o seu pedido.'}
+            {order.status === 'accepted' && 'Seu pedido foi aceito e está sendo confeccionado.'}
+            {order.status === 'shipped' && 'Seu pedido foi postado, confirme quando ele chegar.'}
+            {order.status === 'delivered' && 'Pedido entregue com sucesso!'}
+            {order.status === 'cancelled' && 'Seu pedido foi cancelado pelo vendedor.'}
+          </Text>
         </View>
 
         {/* Shipping Address */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Shipping Address</Text>
+          <Text style={styles.cardTitle}>Endereço de Entrega</Text>
           <View style={styles.addressContainer}>
             <Ionicons name="location-outline" size={24} color="#666" />
             <View style={styles.addressText}>
@@ -221,7 +205,7 @@ export default function OrderDetailScreen() {
 
         {/* Order Items */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Order Items ({order.items?.length || 0})</Text>
+          <Text style={styles.cardTitle}>Itens do Pedido ({order.items?.length || 0})</Text>
           {order.items?.map((item) => (
             <View key={item.id} style={styles.orderItem}>
               <Image
@@ -242,7 +226,7 @@ export default function OrderDetailScreen() {
 
         {/* Payment Summary */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment Summary</Text>
+          <Text style={styles.cardTitle}>Resumo do Pagamento</Text>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal:</Text>
             <Text style={styles.summaryValue}>
@@ -250,11 +234,11 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Shipping:</Text>
+            <Text style={styles.summaryLabel}>Frete:</Text>
             <Text style={styles.summaryValue}>R$ {Number(order.shipping_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax:</Text>
+            <Text style={styles.summaryLabel}>Taxas:</Text>
             <Text style={styles.summaryValue}>R$ {Number(order.tax_amount).toFixed(2)}</Text>
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
@@ -264,14 +248,14 @@ export default function OrderDetailScreen() {
           <View style={styles.paymentMethodContainer}>
             <Ionicons name="card-outline" size={20} color="#666" />
             <Text style={styles.paymentMethodText}>
-              {order.payment?.payment_method === 'credit_card' && 'Credit Card'}
+              {order.payment?.payment_method === 'credit_card' && 'Cartão de Crédito'}
               {order.payment?.payment_method === 'pix' && 'PIX'}
               {order.payment?.payment_method === 'boleto' && 'Boleto'}
             </Text>
           </View>
         </View>
 
-        {/* Cancel Button */}
+        {/* Cancel Button - Only for pending orders */}
         {order.status === 'pending' && (
           <View style={styles.card}>
             <TouchableOpacity
@@ -284,15 +268,15 @@ export default function OrderDetailScreen() {
               ) : (
                 <>
                   <Ionicons name="close-circle-outline" size={24} color="#fff" />
-                  <Text style={styles.cancelButtonText}>Cancel Order</Text>
+                  <Text style={styles.cancelButtonText}>Cancelar Pedido</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Refund Request Section - Show for delivered/confirmed orders with completed payments */}
-        {['confirmed', 'shipped', 'delivered'].includes(order.status) && payments.length > 0 && (
+        {/* Refund Request Section - Show for accepted/shipped/delivered orders with completed payments */}
+        {['accepted', 'shipped', 'delivered'].includes(order.status) && payments.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Solicitar Reembolso</Text>
             <Text style={styles.refundInfo}>
@@ -396,6 +380,55 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  statusTextWhite: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  seeReasonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#dc2626',
+    textDecorationLine: 'underline',
+  },
+  trackingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  trackingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  trackingCode: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    flex: 1,
+  },
+  trackingButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  trackingButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  trackingHint: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
+  statusMessage: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
   },
   orderDate: {
     fontSize: 14,

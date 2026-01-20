@@ -20,16 +20,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const { register, isAuthLoading, setSellerRegistrationData } = useAppStore();
+  const { register, isAuthLoading } = useAppStore();
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    if (role === 'seller' && !phone) {
+      Alert.alert('Erro', 'Por favor, preencha o número de celular');
       return;
     }
 
@@ -44,20 +50,18 @@ export default function Register() {
     }
 
     try {
-      // If seller, just navigate to detail pages without registering yet
-      if (role === 'seller') {
-        // Store registration data for later submission
-        setSellerRegistrationData({ name, email, password });
-        router.push('/auth/register-detail-1');
-      } else {
-        // For buyers, register immediately
-        await register(name, email, password, password, '', role);
-        Alert.alert(
-          'Sucesso',
-          'Conta criada com sucesso!',
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
-        );
-      }
+      // Register both buyers and sellers directly
+      await register(name, email, password, password, phone, role);
+
+      const message = role === 'seller'
+        ? 'Cadastro realizado com sucesso! Sua conta será analisada e você receberá um e-mail quando for aprovada. Por favor, faça login após a aprovação.'
+        : 'Cadastro realizado com sucesso! Por favor, faça login para continuar.';
+
+      Alert.alert(
+        'Sucesso',
+        message,
+        [{ text: 'OK', onPress: () => router.replace('/auth/login') }]
+      );
     } catch (error: any) {
       Alert.alert('Erro no Registro', error.message || 'Não foi possível criar a conta');
     }
@@ -81,19 +85,46 @@ export default function Register() {
             <Text style={styles.headerTitle}>Cadastro de novo usuário</Text>
           </View>
 
-          {/* Logo and Title */}
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('../../assets/user.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+          <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tipo de Conta</Text>
+            <View style={styles.roleContainer}>
+              <TouchableOpacity
+                style={[styles.roleButton, role === 'buyer' && styles.roleButtonActive]}
+                onPress={() => setRole('buyer')}
+              >
+                <Image
+                  source={require('../../assets/buyer.png')}
+                  style={styles.roleIcon}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.roleButtonText, role === 'buyer' && styles.roleButtonTextActive]} numberOfLines={1}>
+                  Conta cliente
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleButton, role === 'seller' && styles.roleButtonActive]}
+                onPress={() => setRole('seller')}
+              >
+                <Image
+                  source={require('../../assets/seller.png')}
+                  style={styles.roleIcon}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.roleButtonText, role === 'seller' && styles.roleButtonTextActive]} numberOfLines={1}>
+                  Conta vendedor
+                </Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.title} numberOfLines={1}>Jóia Perfeita</Text>
           </View>
 
-          <View style={styles.form}>
+          {/* Image Upload Field */}
+          <TouchableOpacity style={styles.imageUploadContainer}>
+            <Ionicons name="image-outline" size={24} color="#F5C518" />
+            <Text style={styles.imageUploadText}>+ adicionar foto de perfil</Text>
+          </TouchableOpacity>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nome Completo*</Text>
             <View style={styles.inputContainer}>
@@ -124,6 +155,23 @@ export default function Register() {
             </View>
           </View>
 
+          {role === 'seller' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Celular*</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="(DDD) 00000 0000"
+                  placeholderTextColor="#B3B3B3"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                />
+              </View>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Senha*</Text>
             <View style={styles.inputContainer}>
@@ -145,40 +193,11 @@ export default function Register() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </ScrollView>
 
-          <View style={[styles.inputGroup, styles.roleInputGroup]}>
-            <Text style={styles.label}>Tipo de Conta</Text>
-            <View style={styles.roleContainer}>
-              <TouchableOpacity
-                style={[styles.roleButton, role === 'buyer' && styles.roleButtonActive]}
-                onPress={() => setRole('buyer')}
-              >
-                <Image
-                  source={require('../../assets/buyer.png')}
-                  style={styles.roleIcon}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.roleButtonText, role === 'buyer' && styles.roleButtonTextActive]} numberOfLines={1}>
-                  Conta cliente
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.roleButton, role === 'seller' && styles.roleButtonActive]}
-                onPress={() => setRole('seller')}
-              >
-                <Image
-                  source={require('../../assets/buyer.png')}
-                  style={styles.roleIcon}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.roleButtonText, role === 'seller' && styles.roleButtonTextActive]} numberOfLines={1}>
-                  Conta vendedor
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
+        {/* Footer with Button */}
+        <View style={styles.footer}>
           {/* Terms and Conditions */}
           <TouchableOpacity
             style={styles.termsContainer}
@@ -194,11 +213,7 @@ export default function Register() {
               Leia com atenção à nossa política de privacidade e termos de uso.
             </Text>
           </TouchableOpacity>
-        </View>
-      </ScrollView>
 
-        {/* Footer with Button */}
-        <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.button, isAuthLoading && styles.buttonDisabled]}
             onPress={handleRegister}
@@ -325,7 +340,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
     borderColor: '#D9D9D9',
-    borderRadius: 10,
+    borderRadius: 50,
     padding: 14,
     gap: 10,
   },
@@ -347,11 +362,30 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
   },
+  imageUploadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#F5C518',
+    borderStyle: 'dashed',
+    borderRadius: 40,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+    gap: 8,
+  },
+  imageUploadText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+  },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   checkbox: {
     width: 20,
@@ -404,7 +438,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 32,
     paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
   },
 });

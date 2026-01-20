@@ -1,14 +1,20 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Modal, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import type { Order } from '../services/api';
+import { orderApi } from '../services/api';
+import OrderCard from '../components/order/OrderCard';
 
 export default function OrdersScreen() {
   const { orders, authToken, fetchOrders } = useAppStore();
   const isAuthenticated = !!authToken;
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [reasonModalVisible, setReasonModalVisible] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState<number | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -22,18 +28,55 @@ export default function OrdersScreen() {
     setRefreshing(false);
   };
 
+  const handleViewAddress = (order: Order) => {
+    setSelectedOrder(order);
+    setAddressModalVisible(true);
+  };
+
+  const handleViewReason = (order: Order) => {
+    setSelectedOrder(order);
+    setReasonModalVisible(true);
+  };
+
+  const handleConfirmDelivery = async (order: Order) => {
+    if (!authToken) return;
+
+    Alert.alert(
+      'Confirmar Recebimento',
+      'Você confirma que recebeu o produto?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setConfirmingDelivery(order.id);
+            try {
+              await orderApi.confirmDelivery(authToken, order.id);
+              Alert.alert('Sucesso!', 'Entrega confirmada com sucesso.');
+              fetchOrders();
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao confirmar entrega');
+            } finally {
+              setConfirmingDelivery(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!isAuthenticated) {
     return (
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="receipt-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Login Required</Text>
-          <Text style={styles.emptyText}>Please login to view your orders</Text>
+          <Text style={styles.emptyTitle}>Login Necessário</Text>
+          <Text style={styles.emptyText}>Faça login para ver seus pedidos</Text>
           <TouchableOpacity
             style={styles.loginButton}
             onPress={() => router.push('/auth/login')}
           >
-            <Text style={styles.loginButtonText}>Login</Text>
+            <Text style={styles.loginButtonText}>Entrar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -48,107 +91,106 @@ export default function OrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           <Ionicons name="receipt-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>No orders yet</Text>
-          <Text style={styles.emptyText}>Start shopping to see your orders here</Text>
+          <Text style={styles.emptyTitle}>Nenhum pedido</Text>
+          <Text style={styles.emptyText}>Comece a comprar para ver seus pedidos aqui</Text>
           <TouchableOpacity
             style={styles.shopButton}
             onPress={() => router.push('/(tabs)')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>Começar a Comprar</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
     );
   }
 
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'pending':
-        return '#FFA500';
-      case 'confirmed':
-        return '#2196F3';
-      case 'shipped':
-        return '#9C27B0';
-      case 'delivered':
-        return '#4CAF50';
-      case 'cancelled':
-        return '#F44336';
-      default:
-        return '#666';
-    }
-  };
-
-  const getStatusIcon = (status: Order['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'time-outline';
-      case 'confirmed':
-        return 'checkmark-circle-outline';
-      case 'shipped':
-        return 'airplane-outline';
-      case 'delivered':
-        return 'checkmark-done-circle-outline';
-      case 'cancelled':
-        return 'close-circle-outline';
-      default:
-        return 'ellipse-outline';
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Orders</Text>
+      <Text style={styles.header}>Meus Pedidos</Text>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.ordersContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {orders.map((order) => (
-          <TouchableOpacity
+          <OrderCard
             key={order.id}
-            style={styles.orderCard}
-            onPress={() => router.push(`/orders/${order.id}`)}
-          >
-            <View style={styles.orderHeader}>
-              <View>
-                <Text style={styles.orderNumber}>#{order.order_number}</Text>
-                <Text style={styles.orderDate}>
-                  {new Date(order.created_at).toLocaleDateString('pt-BR')}
-                </Text>
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
-                <Ionicons
-                  name={getStatusIcon(order.status) as any}
-                  size={16}
-                  color={getStatusColor(order.status)}
-                />
-                <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.orderBody}>
-              <View style={styles.orderInfo}>
-                <Ionicons name="cube-outline" size={20} color="#666" />
-                <Text style={styles.orderInfoText}>
-                  {order.items?.length || 0} item(s)
-                </Text>
-              </View>
-              <View style={styles.orderInfo}>
-                <Ionicons name="cash-outline" size={20} color="#666" />
-                <Text style={styles.orderInfoText}>
-                  R$ {Number(order.total_amount).toFixed(2)}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.orderFooter}>
-              <Text style={styles.viewDetailsText}>View Details</Text>
-              <Ionicons name="chevron-forward" size={20} color="#D4AF37" />
-            </View>
-          </TouchableOpacity>
+            order={order}
+            viewType="buyer"
+            onViewAddress={handleViewAddress}
+            onViewReason={handleViewReason}
+            onConfirmDelivery={handleConfirmDelivery}
+            isLoading={confirmingDelivery === order.id}
+          />
         ))}
       </ScrollView>
+
+      {/* Address Modal */}
+      <Modal
+        visible={addressModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAddressModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Endereço de Entrega</Text>
+
+            {selectedOrder?.shipping_address ? (
+              <View style={styles.addressContainer}>
+                <View style={styles.addressRow}>
+                  <Ionicons name="location" size={20} color="#2563eb" />
+                  <View style={styles.addressDetails}>
+                    <Text style={styles.addressStreet}>
+                      {selectedOrder.shipping_address.street}
+                    </Text>
+                    <Text style={styles.addressCity}>
+                      {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state}
+                    </Text>
+                    <Text style={styles.addressPostal}>
+                      CEP: {selectedOrder.shipping_address.postal_code}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.noDataText}>Endereço não disponível</Text>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setAddressModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancellation Reason Modal */}
+      <Modal
+        visible={reasonModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReasonModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Motivo do Cancelamento</Text>
+
+            <Text style={styles.reasonText}>
+              {selectedOrder?.cancellation_reason || 'Motivo não informado pelo vendedor.'}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setReasonModalVisible(false)}
+            >
+              <Text style={styles.modalCloseText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -166,6 +208,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  ordersContainer: {
+    padding: 16,
   },
   emptyContainer: {
     flex: 1,
@@ -210,72 +255,72 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  orderCard: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
   },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  orderNumber: {
+  modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#111827',
+    marginBottom: 16,
   },
-  orderDate: {
+  addressContainer: {
+    marginBottom: 20,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  addressDetails: {
+    flex: 1,
+  },
+  addressStreet: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  orderBody: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
-  },
-  orderInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  orderInfoText: {
+  addressCity: {
     fontSize: 14,
-    color: '#666',
+    color: '#374151',
+    marginBottom: 2,
   },
-  orderFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+  addressPostal: {
+    fontSize: 13,
+    color: '#6b7280',
   },
-  viewDetailsText: {
+  noDataText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#D4AF37',
-    marginRight: 4,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginVertical: 20,
+  },
+  reasonText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
   },
 });

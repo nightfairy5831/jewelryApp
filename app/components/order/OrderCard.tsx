@@ -1,0 +1,517 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  ActivityIndicator,
+  Linking,
+  Modal,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { Order, OrderItem } from '../../services/api';
+
+type OrderStatus = Order['status'];
+
+interface OrderCardProps {
+  order: Order;
+  viewType: 'buyer' | 'seller';
+  onAccept?: (order: Order) => void;
+  onReject?: (order: Order) => void;
+  onShip?: (order: Order, trackingNumber: string) => void;
+  onViewAddress?: (order: Order) => void;
+  onViewReason?: (order: Order) => void;
+  onConfirmDelivery?: (order: Order) => void;
+  isLoading?: boolean;
+}
+
+const STATUS_CONFIG: Record<OrderStatus, {
+  color: string;
+  bgColor: string;
+  sellerLabel: string;
+  buyerLabel: string;
+  buyerMessage?: string;
+}> = {
+  pending: {
+    color: '#6b7280',
+    bgColor: '#f3f4f6',
+    sellerLabel: 'Aguardando pagamento',
+    buyerLabel: 'Aguardando pagamento'
+  },
+  confirmed: {
+    color: '#111827',
+    bgColor: '#f3f4f6',
+    sellerLabel: 'Nova venda',
+    buyerLabel: 'Aguardando o vendedor',
+    buyerMessage: 'Aguardando o vendedor confirmar o seu pedido.'
+  },
+  accepted: {
+    color: '#f97316',
+    bgColor: '#fff7ed',
+    sellerLabel: 'Aguardando envio',
+    buyerLabel: 'Aguardando envio',
+    buyerMessage: 'Seu pedido foi aceito e está sendo confeccionado.'
+  },
+  shipped: {
+    color: '#2563eb',
+    bgColor: '#eff6ff',
+    sellerLabel: 'Postado',
+    buyerLabel: 'Postado',
+    buyerMessage: 'Seu pedido foi postado, confirme quando ele chegar.'
+  },
+  delivered: {
+    color: '#16a34a',
+    bgColor: '#f0fdf4',
+    sellerLabel: 'Concluído',
+    buyerLabel: 'Concluído',
+    buyerMessage: 'Pedido entregue com sucesso!'
+  },
+  cancelled: {
+    color: '#dc2626',
+    bgColor: '#fef2f2',
+    sellerLabel: 'Cancelado',
+    buyerLabel: 'Cancelado',
+    buyerMessage: 'Seu pedido foi cancelado pelo vendedor.'
+  },
+};
+
+export default function OrderCard({
+  order,
+  viewType,
+  onAccept,
+  onReject,
+  onShip,
+  onViewAddress,
+  onViewReason,
+  onConfirmDelivery,
+  isLoading,
+}: OrderCardProps) {
+  const [trackingInput, setTrackingInput] = useState('');
+  const [showTrackingInput, setShowTrackingInput] = useState(false);
+
+  const status = STATUS_CONFIG[order.status];
+  const statusLabel = viewType === 'seller' ? status.sellerLabel : status.buyerLabel;
+  const item = order.items?.[0];
+  const product = item?.product;
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('pt-BR');
+  };
+
+  const formatPrice = (price: number | string) => {
+    return `R$ ${Number(price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  };
+
+  const handleTrackingPress = () => {
+    if (order.tracking_number) {
+      // Open tracking URL (generic correios tracking)
+      Linking.openURL(`https://rastreamento.correios.com.br/app/index.php?objetos=${order.tracking_number}`);
+    }
+  };
+
+  const handleShipSubmit = () => {
+    if (trackingInput.trim() && onShip) {
+      onShip(order, trackingInput.trim());
+      setTrackingInput('');
+      setShowTrackingInput(false);
+    }
+  };
+
+  // Get product specs
+  const getSpecs = () => {
+    if (!product) return null;
+    return {
+      teor: product.gold_karat || product.properties?.teor || '18K',
+      peso: product.gold_weight_grams ? `${product.gold_weight_grams}g` : product.properties?.peso || '5g',
+      preenchimento: product.properties?.preenchimento || 'Maciço',
+      pedra: product.properties?.pedra || 'Natural',
+    };
+  };
+
+  const specs = getSpecs();
+
+  // Get customization from order item (ring sizes and names)
+  const getCustomization = () => {
+    const ringCustomization = item?.ringCustomization;
+    if (!ringCustomization) return null;
+    return {
+      aroMasculino: ringCustomization.size_1 || ringCustomization.size,
+      nomeFeminino: ringCustomization.name_2,
+      aroFeminino: ringCustomization.size_2,
+      nomeMasculino: ringCustomization.name_1,
+    };
+  };
+
+  const customization = getCustomization();
+
+  return (
+    <View style={styles.card}>
+      {/* Header: Status + Date */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>{statusLabel}</Text>
+          </View>
+          {order.status === 'cancelled' && viewType === 'buyer' && onViewReason && (
+            <TouchableOpacity onPress={() => onViewReason(order)}>
+              <Text style={styles.viewReasonText}>Ver motivo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.dateText}>Compra feita dia {formatDate(order.created_at)}</Text>
+      </View>
+
+      {/* Product Info */}
+      <View style={styles.productRow}>
+        <Image
+          source={{ uri: product?.thumbnail || product?.images?.[0] || 'https://via.placeholder.com/60' }}
+          style={styles.productImage}
+        />
+        <View style={styles.productInfo}>
+          <Text style={styles.productName} numberOfLines={2}>
+            {product?.name || `Produto #${item?.product_id}`}
+          </Text>
+        </View>
+        {viewType === 'buyer' && product?.rating && product.rating > 0 && (
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={14} color="#fbbf24" />
+            <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Customization (Ring sizes and names) */}
+      {customization && (
+        <View style={styles.customizationContainer}>
+          {customization.aroMasculino && (
+            <Text style={styles.customizationText}>Aro Masculino: {customization.aroMasculino}</Text>
+          )}
+          {customization.nomeFeminino && (
+            <Text style={styles.customizationText}>Nome Feminino: {customization.nomeFeminino}</Text>
+          )}
+          {customization.aroFeminino && (
+            <>
+              <Text style={styles.customizationText}>Aro Feminino: {customization.aroFeminino}</Text>
+            </>
+          )}
+          {customization.nomeMasculino && (
+            <Text style={styles.customizationText}>Nome Masculino: {customization.nomeMasculino}</Text>
+          )}
+        </View>
+      )}
+
+      {/* Product Specs Grid */}
+      {specs && (
+        <View style={styles.specsContainer}>
+          <View style={styles.specItem}>
+            <Text style={styles.specLabel}>Teor:</Text>
+            <Text style={styles.specValue}>{specs.teor}</Text>
+          </View>
+          <View style={styles.specItem}>
+            <Text style={styles.specLabel}>Peso:</Text>
+            <Text style={styles.specValue}>{specs.peso}</Text>
+          </View>
+          <View style={styles.specItem}>
+            <Text style={styles.specLabel}>Preenchimento:</Text>
+            <Text style={styles.specValue}>{specs.preenchimento}</Text>
+          </View>
+          <View style={styles.specItem}>
+            <Text style={styles.specLabel}>Pedra:</Text>
+            <Text style={styles.specValue}>{specs.pedra}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Price */}
+      <Text style={styles.price}>{formatPrice(order.total_amount)}</Text>
+
+      {/* Tracking Number Display (for shipped only) */}
+      {order.tracking_number && order.status === 'shipped' && (
+        <View style={styles.trackingContainer}>
+          <Text style={styles.trackingCode} numberOfLines={1}>{order.tracking_number}</Text>
+          <TouchableOpacity onPress={() => {/* Copy to clipboard */}}>
+            <Ionicons name="copy-outline" size={18} color="#111827" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.trackingButton} onPress={handleTrackingPress}>
+            <Text style={styles.trackingButtonText}>Rastreamento</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Seller: Tracking Input for accepted orders */}
+      {viewType === 'seller' && order.status === 'accepted' && (
+        <View style={styles.trackingInputContainer}>
+          <TextInput
+            style={styles.trackingInput}
+            placeholder="Digite o código de rastreio *"
+            placeholderTextColor="#9ca3af"
+            value={trackingInput}
+            onChangeText={setTrackingInput}
+          />
+          <TouchableOpacity
+            style={[styles.shipButton, !trackingInput.trim() && styles.shipButtonDisabled]}
+            onPress={handleShipSubmit}
+            disabled={!trackingInput.trim() || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.shipButtonText}>Enviar produto</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Seller: Accept/Reject for confirmed orders */}
+      {viewType === 'seller' && order.status === 'confirmed' && (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.rejectButton}
+            onPress={() => onReject?.(order)}
+            disabled={isLoading}
+          >
+            <Text style={styles.rejectButtonText}>Recusar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.acceptButton}
+            onPress={() => onAccept?.(order)}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.acceptButtonText}>Aceitar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Buyer: Status message */}
+      {viewType === 'buyer' && status.buyerMessage && order.status !== 'pending' && (
+        <Text style={styles.statusMessage}>{status.buyerMessage}</Text>
+      )}
+
+      {/* Ver endereço button */}
+      {onViewAddress && ['confirmed', 'accepted', 'shipped', 'delivered'].includes(order.status) && (
+        <TouchableOpacity style={styles.addressButton} onPress={() => onViewAddress(order)}>
+          <Ionicons name="location-outline" size={16} color="#111827" />
+          <Text style={styles.addressButtonText}>Ver endereço</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 26,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  viewReasonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#f97316',
+    textDecorationLine: 'underline',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  productRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  productImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  productInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    lineHeight: 22,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  customizationContainer: {
+    marginBottom: 12,
+  },
+  customizationText: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 20,
+  },
+  specsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    gap: 16,
+  },
+  specItem: {
+    minWidth: '40%',
+  },
+  specLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  specValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  price: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  trackingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  trackingCode: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  trackingButton: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  trackingButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  trackingInputContainer: {
+    marginBottom: 12,
+  },
+  trackingInput: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 12,
+  },
+  shipButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  shipButtonDisabled: {
+    backgroundColor: '#9ca3af',
+  },
+  shipButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  rejectButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  rejectButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  acceptButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+  },
+  acceptButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  statusMessage: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 12,
+  },
+  addressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  addressButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+});
