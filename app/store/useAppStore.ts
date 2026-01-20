@@ -8,31 +8,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type CatalogMode = 'browse' | 'detail';
 
-interface SellerRegistrationData {
-  // From register page
-  name: string;
-  email: string;
-  password: string;
-  // From detail-1
-  cnpj: string;
-  cpf: string;
-  birthDate: string;
-  phone: string;
-  representativeEmail: string;
-  // From detail-2
-  tradeName: string;
-  companyPhone: string;
-  companyEmail: string;
-  monthlyRevenue: string;
-}
-
 interface AppState {
   // Auth State - ULTRA SIMPLIFIED: Only token!
   authToken: string | null;
   isAuthLoading: boolean;
-
-  // Seller Registration State
-  sellerRegistrationData: SellerRegistrationData | null;
 
   // App State
   products: Product[];
@@ -65,10 +44,6 @@ interface AppState {
   checkAuth: () => Promise<void>;
   setAuthToken: (token: string) => Promise<void>;
 
-  // Seller Registration Actions
-  setSellerRegistrationData: (data: Partial<SellerRegistrationData>) => void;
-  clearSellerRegistrationData: () => void;
-
   // Actions
   toggleFollow: (userId: string) => void;
   toggleLike: (reviewId: string) => void;
@@ -100,21 +75,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Auth initial state - ULTRA SIMPLIFIED
   authToken: null,
   isAuthLoading: false,
-
-  // Seller Registration initial state
-  sellerRegistrationData: null,
-
-  // Seller Registration actions
-  setSellerRegistrationData: (data) =>
-    set((state) => ({
-      sellerRegistrationData: {
-        ...state.sellerRegistrationData,
-        ...data,
-      } as SellerRegistrationData,
-    })),
-
-  clearSellerRegistrationData: () =>
-    set({ sellerRegistrationData: null }),
 
   // App initial state
   products: [],
@@ -166,16 +126,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   register: async (name, email, password, passwordConfirmation, phone, role = 'buyer') => {
     set({ isAuthLoading: true, error: null });
     try {
-      const response = await authApi.register(name, email, password, passwordConfirmation, phone, role);
+      await authApi.register(name, email, password, passwordConfirmation, phone, role);
 
-      // Store token AND user data
-      await AsyncStorage.setItem('authToken', response.token);
-      await AsyncStorage.setItem('currentUser', JSON.stringify(response.user));
-
-      set({
-        authToken: response.token,
-        isAuthLoading: false,
-      });
+      // Don't store token or log in automatically
+      // User needs to log in after registration (sellers need approval)
+      set({ isAuthLoading: false });
     } catch (error: any) {
       set({ isAuthLoading: false, error: error.message });
       throw error;
@@ -192,7 +147,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       cartItemsCount: 0,
       orders: [],
       wishlist: [],
-      sellerRegistrationData: null,
       isAuthLoading: false,
       error: null,
     });
