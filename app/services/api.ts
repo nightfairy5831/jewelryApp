@@ -1060,9 +1060,9 @@ export const sellerApi = {
     });
   },
 
-  // Get Mercado Pago OAuth URL
-  getMercadoPagoOAuthUrl: async (token: string): Promise<{ oauth_url: string }> => {
-    return await apiCall<{ oauth_url: string }>('/seller/mercadopago/oauth-url', {
+  // Get Mercado Pago OAuth URL (works for both sandbox and production modes)
+  getMercadoPagoOAuthUrl: async (token: string): Promise<{ mode: string; oauth_url: string }> => {
+    return await apiCall<{ mode: string; oauth_url: string }>('/seller/mercadopago/oauth-url', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

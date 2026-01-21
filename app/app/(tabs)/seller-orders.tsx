@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   TextInput,
   Alert,
   Modal,
@@ -27,7 +26,6 @@ export default function SellerOrdersScreen() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
@@ -59,13 +57,7 @@ export default function SellerOrdersScreen() {
       setError(err.message || 'Falha ao carregar pedidos');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchOrders();
   };
 
   const handleAccept = async (order: Order) => {
@@ -123,6 +115,7 @@ export default function SellerOrdersScreen() {
       fetchOrders();
     } catch (err: any) {
       Alert.alert('Erro', err.message || 'Falha ao enviar produto');
+      fetchOrders(); // Refresh to show current server state
     } finally {
       setActionLoading(null);
     }
@@ -154,54 +147,53 @@ export default function SellerOrdersScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Meus Pedidos</Text>
+        <Text style={styles.headerTitle}>Vendas</Text>
         <View style={styles.placeholder} />
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
-      >
-        {[
-          { key: 'all', label: 'Todos' },
-          { key: 'confirmed', label: 'Novas' },
-          { key: 'accepted', label: 'Aguardando' },
-          { key: 'shipped', label: 'Postados' },
-          { key: 'delivered', label: 'Concluídos' },
-        ].map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={styles.filterTab}
-            onPress={() => {
-              setFilterStatus(filter.key);
-              setLoading(true);
-            }}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                filterStatus === filter.key && styles.filterTabTextActive,
-              ]}
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+        >
+          {[
+            { key: 'all', label: 'Todos' },
+            { key: 'confirmed', label: 'Novas vendas' },
+            { key: 'shipped', label: 'Enviados' },
+            { key: 'in_production', label: 'Em fabricação' },
+            { key: 'delivered', label: 'Concluído' },
+          ].map((filter) => (
+            <TouchableOpacity
+              key={filter.key}
+              style={styles.filterTab}
+              onPress={() => {
+                setFilterStatus(filter.key);
+                setLoading(true);
+              }}
             >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.filterTabText,
+                  filterStatus === filter.key && styles.filterTabTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+              {filterStatus === filter.key && <View style={styles.filterTabIndicator} />}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Orders List */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
         contentContainerStyle={styles.ordersContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
-        }
       >
-        {loading && !refreshing ? (
+        {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={styles.loadingText}>Carregando pedidos...</Text>
@@ -385,23 +377,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
-    maxHeight: 44,
   },
   filterContent: {
     paddingHorizontal: 16,
+    paddingTop: 8,
   },
   filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginRight: 24,
+    paddingBottom: 12,
+    position: 'relative',
   },
   filterTabText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     color: '#6b7280',
   },
   filterTabTextActive: {
-    color: '#2563eb',
+    color: '#111827',
     fontWeight: '600',
+  },
+  filterTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#111827',
   },
   content: {
     flex: 1,

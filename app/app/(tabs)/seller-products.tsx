@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,7 +38,6 @@ export default function SellerProductsScreen() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,13 +71,7 @@ export default function SellerProductsScreen() {
       setError(err.message || 'Falha ao carregar produtos');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchProducts();
   };
 
   const handleSearch = () => {
@@ -137,7 +129,7 @@ export default function SellerProductsScreen() {
         <Text style={styles.headerTitle}>Meus Produtos</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => router.push('/seller/product-form')}
+          onPress={() => router.push('/(tabs)/product-form')}
         >
           <Ionicons name="add" size={24} color="#ffffff" />
         </TouchableOpacity>
@@ -203,11 +195,8 @@ export default function SellerProductsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
-        }
       >
-        {loading && !refreshing ? (
+        {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={styles.loadingText}>Carregando produtos...</Text>
@@ -237,7 +226,7 @@ export default function SellerProductsScreen() {
                 key={product.id}
                 style={styles.productCard}
                 onPress={() => router.push({
-                  pathname: '/seller/product-form',
+                  pathname: '/(tabs)/product-form',
                   params: { productId: String(product.id) }
                 })}
                 activeOpacity={0.7}
