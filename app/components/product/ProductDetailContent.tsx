@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -24,6 +24,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
   const [customization, setCustomization] = useState<RingCustomization>({});
   const [productRating, setProductRating] = useState(0);
   const [reviewCount, setReviewCount] = useState(0);
+  const [showRingSizeGuide, setShowRingSizeGuide] = useState(false);
 
   const sellerName = product.seller?.name || 'Joalheria Premium';
   const sellerInitial = sellerName.charAt(0).toUpperCase();
@@ -56,7 +57,35 @@ export default function ProductDetailContent({ product, compact = false, onCusto
   const containerStyle = compact ? styles.contentCompact : styles.content;
 
   return (
-    <View style={containerStyle}>
+    <>
+      <Modal
+        visible={showRingSizeGuide}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRingSizeGuide(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowRingSizeGuide(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowRingSizeGuide(false)}
+            >
+              <Ionicons name="close-circle" size={32} color="#fff" />
+            </TouchableOpacity>
+            <Image
+              source={require('../../assets/ring_size.png')}
+              style={styles.ringSizeImage}
+              contentFit="contain"
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <View style={containerStyle}>
       {/* Seller Section */}
       <View style={styles.sellerSection}>
         <View style={styles.sellerLogoContainer}>
@@ -138,7 +167,12 @@ export default function ProductDetailContent({ product, compact = false, onCusto
       {/* Ring Customization Fields */}
       {needsRingSize && (
         <View style={styles.customizationBox}>
-          <Text style={styles.customizationLabel}>Tamanho do Anel:</Text>
+          <View style={styles.ringSizeHeader}>
+            <Text style={styles.customizationLabel}>Tamanho do Anel:</Text>
+            <TouchableOpacity onPress={() => setShowRingSizeGuide(true)}>
+              <Text style={styles.ringSizeGuideButton}>Não sei meu aro</Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.input}
             placeholder="Ex: 18"
@@ -151,7 +185,12 @@ export default function ProductDetailContent({ product, compact = false, onCusto
 
       {needsWeddingCustomization && (
         <View style={styles.customizationBox}>
-          <Text style={styles.customizationLabel}>Alianças de Casamento:</Text>
+          <View style={styles.ringSizeHeader}>
+            <Text style={styles.customizationLabel}>Alianças de Casamento:</Text>
+            <TouchableOpacity onPress={() => setShowRingSizeGuide(true)}>
+              <Text style={styles.ringSizeGuideButton}>Não sei meu aro</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.ringPairContainer}>
             <Text style={styles.ringLabel}>Aliança Masculina:</Text>
@@ -225,7 +264,8 @@ export default function ProductDetailContent({ product, compact = false, onCusto
       </View>
 
       {/* Add to Cart button moved to sticky footer in index.tsx */}
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -399,11 +439,22 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
   },
+  ringSizeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   customizationLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: '#000',
-    marginBottom: 12,
+  },
+  ringSizeGuideButton: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563eb',
+    textDecorationLine: 'underline',
   },
   ringPairContainer: {
     marginBottom: 16,
@@ -423,5 +474,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000',
     marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '95%',
+    height: '85%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: -40,
+    right: 0,
+    zIndex: 10,
+  },
+  ringSizeImage: {
+    width: '100%',
+    height: '100%',
   },
 });

@@ -79,13 +79,6 @@ export default function SellerDashboardScreen() {
     }
   }, [isAuthenticated, authToken, currentUser]);
 
-  // Redirect buyers to buyer dashboard
-  useEffect(() => {
-    if (currentUser && currentUser.role === 'buyer' && !loading) {
-      router.replace('/(tabs)');
-    }
-  }, [currentUser, loading]);
-
   // Handle deep links for Mercado Pago OAuth callback
   useEffect(() => {
     const handleDeepLink = (event: { url: string }) => {

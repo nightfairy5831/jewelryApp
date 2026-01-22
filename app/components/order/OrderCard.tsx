@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import type { Order, OrderItem } from '../../services/api';
 
 type OrderStatus = Order['status'];
@@ -114,6 +116,17 @@ export default function OrderCard({
     if (order.tracking_number) {
       // Open tracking URL (generic correios tracking)
       Linking.openURL(`https://rastreamento.correios.com.br/app/index.php?objetos=${order.tracking_number}`);
+    }
+  };
+
+  const handleCopyTrackingNumber = async () => {
+    if (order.tracking_number) {
+      try {
+        await Clipboard.setStringAsync(order.tracking_number);
+        Alert.alert('Copiado!', 'Código de rastreio copiado para a área de transferência');
+      } catch (error) {
+        Alert.alert('Erro', 'Falha ao copiar código de rastreio');
+      }
     }
   };
 
@@ -253,7 +266,7 @@ export default function OrderCard({
       {order.tracking_number && order.status === 'shipped' && (
         <View style={styles.trackingContainer}>
           <Text style={styles.trackingCode} numberOfLines={1}>{order.tracking_number}</Text>
-          <TouchableOpacity onPress={() => {/* Copy to clipboard */}}>
+          <TouchableOpacity onPress={handleCopyTrackingNumber}>
             <Ionicons name="copy-outline" size={18} color="#111827" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.trackingButton} onPress={handleTrackingPress}>

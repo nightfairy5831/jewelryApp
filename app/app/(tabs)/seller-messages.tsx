@@ -167,23 +167,14 @@ export default function SellerMessagesScreen() {
                   <View style={styles.messageUserDetails}>
                     <Text style={styles.messageUserName}>{message.from_user_name}</Text>
                     <Text style={styles.messageDate}>
-                      {new Date(message.created_at).toLocaleDateString('pt-BR', {
+                      {message.created_at && new Date(message.created_at).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
+                        year: 'numeric',
                       })}
                     </Text>
                   </View>
                 </View>
-                {message.product_name && (
-                  <View style={styles.productBadge}>
-                    <Ionicons name="cube-outline" size={14} color="#6b7280" />
-                    <Text style={styles.productName} numberOfLines={1}>
-                      {message.product_name}
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <View style={styles.messageContent}>
@@ -195,15 +186,16 @@ export default function SellerMessagesScreen() {
                 <View style={styles.answerContent}>
                   <Text style={styles.answerLabel}>Sua resposta:</Text>
                   <Text style={styles.answerText}>{message.answer}</Text>
-                  <Text style={styles.answerDate}>
-                    Respondido em{' '}
-                    {new Date(message.answered_at || '').toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
+                  {message.answered_at && (
+                    <Text style={styles.answerDate}>
+                      Respondido em{' '}
+                      {new Date(message.answered_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  )}
                 </View>
               ) : (
                 <View style={styles.messageActions}>

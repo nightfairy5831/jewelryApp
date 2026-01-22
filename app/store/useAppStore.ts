@@ -39,7 +39,7 @@ interface AppState {
 
   // Auth Actions
   login: (email: string, password: string, remember?: boolean) => Promise<void>;
-  register: (name: string, email: string, password: string, passwordConfirmation: string, phone?: string, role?: 'buyer' | 'seller') => Promise<void>;
+  register: (name: string, email: string, password: string, passwordConfirmation: string, phone?: string, role?: 'buyer' | 'seller', avatar_url?: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setAuthToken: (token: string) => Promise<void>;
@@ -123,10 +123,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  register: async (name, email, password, passwordConfirmation, phone, role = 'buyer') => {
+  register: async (name, email, password, passwordConfirmation, phone, role = 'buyer', avatar_url) => {
     set({ isAuthLoading: true, error: null });
     try {
-      await authApi.register(name, email, password, passwordConfirmation, phone, role);
+      await authApi.register(name, email, password, passwordConfirmation, phone, role, avatar_url);
 
       // Don't store token or log in automatically
       // User needs to log in after registration (sellers need approval)

@@ -11,16 +11,12 @@ class OrderShipped
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $order;
-    public $user;
-    public $trackingNumber;
 
     /**
      * Create a new event instance.
      */
-    public function __construct($order, $user, string $trackingNumber)
+    public function __construct($order)
     {
         $this->order = $order;
-        $this->user = $user;
-        $this->trackingNumber = $trackingNumber;
     }
 }

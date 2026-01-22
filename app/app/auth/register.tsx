@@ -16,6 +16,8 @@ import { Link, router } from 'expo-router';
 import { useAppStore } from '../../store/useAppStore';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadApi } from '../../services/api';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -25,8 +27,30 @@ export default function Register() {
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const { register, isAuthLoading } = useAppStore();
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      // Store local preview URI
+      setAvatarUrl(result.assets[0].uri);
+    }
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -50,8 +74,29 @@ export default function Register() {
     }
 
     try {
-      // Register both buyers and sellers directly
-      await register(name, email, password, password, phone, role);
+      let uploadedAvatarUrl: string | undefined = undefined;
+
+      // Upload avatar if selected
+      if (avatarUrl) {
+        setUploadingAvatar(true);
+        try {
+          const file = {
+            uri: avatarUrl,
+            type: 'image/jpeg',
+            name: `avatar-${Date.now()}.jpg`,
+          };
+          const response = await uploadApi.uploadAvatar(file);
+          uploadedAvatarUrl = response.url;
+        } catch (uploadError: any) {
+          console.error('Avatar upload failed:', uploadError);
+          // Continue registration without avatar
+        } finally {
+          setUploadingAvatar(false);
+        }
+      }
+
+      // Register user with avatar URL
+      await register(name, email, password, password, phone, role, uploadedAvatarUrl);
 
       const message = role === 'seller'
         ? 'Cadastro realizado com sucesso! Sua conta será analisada e você receberá um e-mail quando for aprovada. Por favor, faça login após a aprovação.'
@@ -99,7 +144,7 @@ export default function Register() {
                   resizeMode="contain"
                 />
                 <Text style={[styles.roleButtonText, role === 'buyer' && styles.roleButtonTextActive]} numberOfLines={1}>
-                  Conta cliente
+                  cliente
                 </Text>
               </TouchableOpacity>
 
@@ -113,16 +158,31 @@ export default function Register() {
                   resizeMode="contain"
                 />
                 <Text style={[styles.roleButtonText, role === 'seller' && styles.roleButtonTextActive]} numberOfLines={1}>
-                  Conta vendedor
+                  vendedor
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Image Upload Field */}
-          <TouchableOpacity style={styles.imageUploadContainer}>
-            <Ionicons name="image-outline" size={24} color="#F5C518" />
-            <Text style={styles.imageUploadText}>+ adicionar foto de perfil</Text>
+          <TouchableOpacity
+            style={styles.imageUploadContainer}
+            onPress={pickImage}
+            disabled={uploadingAvatar}
+          >
+            {uploadingAvatar ? (
+              <ActivityIndicator size="small" color="#F5C518" />
+            ) : avatarUrl ? (
+              <>
+                <Image source={{ uri: avatarUrl }} style={styles.avatarPreview} />
+                <Text style={styles.imageUploadText}>Alterar foto de perfil</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="image-outline" size={24} color="#F5C518" />
+                <Text style={styles.imageUploadText}>+ adicionar foto de perfil</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={styles.inputGroup}>
@@ -215,11 +275,11 @@ export default function Register() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, isAuthLoading && styles.buttonDisabled]}
+            style={[styles.button, (isAuthLoading || uploadingAvatar) && styles.buttonDisabled]}
             onPress={handleRegister}
-            disabled={isAuthLoading}
+            disabled={isAuthLoading || uploadingAvatar}
           >
-            {isAuthLoading ? (
+            {isAuthLoading || uploadingAvatar ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.buttonText}>Criar conta</Text>
@@ -376,6 +436,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     gap: 8,
+  },
+  avatarPreview: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 8,
   },
   imageUploadText: {
     fontSize: 14,

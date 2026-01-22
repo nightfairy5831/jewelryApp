@@ -15,6 +15,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { router, useLocalSearchParams } from 'expo-router';
 import { messageApi, QAMessage } from '../../services/api';
+import { requireAuth } from '../../utils/authUtils';
 
 export default function Forum() {
   const { sellerId, sellerName } = useLocalSearchParams<{ sellerId: string; sellerName: string }>();
@@ -67,13 +68,7 @@ export default function Forum() {
   };
 
   const handleCreateQuestion = async () => {
-    if (!authToken) {
-      Alert.alert('Login necessário', 'Faça login para enviar uma pergunta', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Login', onPress: () => router.push('/auth/login') },
-      ]);
-      return;
-    }
+    if (!requireAuth(authToken, 'Faça login para enviar uma pergunta')) return;
     if (!newQuestionText.trim() || !sellerIdNum) return;
     try {
       await messageApi.createQuestion(authToken, sellerIdNum, newQuestionText);
@@ -88,13 +83,7 @@ export default function Forum() {
   };
 
   const handleAnswer = async (messageId: number) => {
-    if (!authToken) {
-      Alert.alert('Login necessário', 'Faça login para responder', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Login', onPress: () => router.push('/auth/login') },
-      ]);
-      return;
-    }
+    if (!requireAuth(authToken, 'Faça login para responder')) return;
     if (!answerText.trim()) return;
     try {
       await messageApi.answerQuestion(authToken, messageId, answerText);
@@ -109,13 +98,7 @@ export default function Forum() {
   };
 
   const handleNewQuestionPress = () => {
-    if (!authToken) {
-      Alert.alert('Login necessário', 'Faça login para enviar uma pergunta', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Login', onPress: () => router.push('/auth/login') },
-      ]);
-      return;
-    }
+    if (!requireAuth(authToken, 'Faça login para enviar uma pergunta')) return;
     setShowNewQuestion(true);
   };
 
@@ -171,6 +154,25 @@ export default function Forum() {
         ) : (
           messages.map((message) => (
             <View key={message.id} style={styles.qaCard}>
+              {/* Question Maker Info */}
+              <View style={styles.qaHeader}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {message.from_user_name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.qaHeaderInfo}>
+                  <Text style={styles.userName}>{message.from_user_name}</Text>
+                  <Text style={styles.timestamp}>
+                    {new Date(message.created_at).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              </View>
+
               {/* Question */}
               <Text style={styles.questionText} numberOfLines={2}>{message.question}</Text>
 
@@ -378,6 +380,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 22,
     marginBottom: 8,
+    marginTop: 12,
   },
   answerText: {
     fontSize: 15,

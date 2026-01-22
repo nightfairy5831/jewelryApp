@@ -327,7 +327,8 @@ export const authApi = {
     password: string,
     password_confirmation: string,
     phone?: string,
-    role: 'buyer' | 'seller' = 'buyer'
+    role: 'buyer' | 'seller' = 'buyer',
+    avatar_url?: string
   ): Promise<RegisterResponse> => {
     const response = await apiCall<RegisterResponse>('/register', {
       method: 'POST',
@@ -338,6 +339,7 @@ export const authApi = {
         password_confirmation,
         phone,
         role,
+        avatar_url,
       }),
     });
     return response;
@@ -1111,16 +1113,44 @@ export const goldPriceApi = {
 };
 
 export const uploadApi = {
+  // Upload avatar (public - no authentication required)
+  uploadAvatar: async (file: { uri: string; type: string; name: string }): Promise<{ url: string; key: string }> => {
+    const formData = new FormData();
+    formData.append('file', file as any);
+
+    const response = await fetch(`${API_BASE_URL}/upload/avatar`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let error;
+      try {
+        error = JSON.parse(text);
+      } catch {
+        throw new Error(`Upload failed: ${response.status} - ${text.substring(0, 100)}`);
+      }
+      throw new Error(error.message || 'Upload failed');
+    }
+
+    return await response.json();
+  },
+
   uploadFile: async (token: string, file: { uri: string; type: string; name: string }, fileType: 'image' | 'video' | '3d_model'): Promise<{ url: string; key: string }> => {
     const formData = new FormData();
     formData.append('file', file as any);
     formData.append('type', fileType);
 
+    const headers: Record<string, string> = {};
+    // Only add Authorization header if token is provided
+    if (token && token.trim() !== '') {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}/upload/r2`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers,
       body: formData,
     });
 

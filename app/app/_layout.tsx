@@ -72,24 +72,21 @@ export default function RootLayout() {
         router.replace('/(tabs)'); // Explicitly go to index for buyers/guests
       }
     } else if (isAuthenticated && inTabsGroup && currentUser) {
-      // Only do role-based routing if we have user data AND user is authenticated
+      // Simple rule: Only block non-sellers from accessing seller routes
       const currentRoute = segments[1];
+      const isSellerRoute = currentRoute?.startsWith('seller-');
+      const isBuyerDashboard = !currentRoute; // Empty or undefined means index route
 
-      if (currentUser.role === 'seller') {
-        // Seller trying to access buyer's product catalog
-        if (!currentRoute || currentRoute === 'seller-dashboard') {
-          // Keep seller on dashboard, no redirect needed
-        } else {
-          // Seller navigated to buyer route, allow it
-        }
-      } else if (currentUser.role === 'buyer' || currentUser.role === 'admin') {
-        // Buyer/Admin trying to access seller dashboard
-        if (currentRoute === 'seller-dashboard') {
-          router.replace('/(tabs)');
-        }
+      if (currentUser.role !== 'seller' && isSellerRoute) {
+        // Buyer/Admin trying to access seller routes → redirect to buyer dashboard
+        router.replace('/(tabs)');
+      } else if (currentUser.role === 'seller' && isBuyerDashboard) {
+        // Seller trying to access buyer dashboard → redirect to seller dashboard
+        router.replace('/(tabs)/seller-dashboard');
       }
-    } else if (!isAuthenticated && inTabsGroup && segments[1] === 'seller-dashboard') {
-      // If user is not authenticated but on seller-dashboard, redirect to main catalog
+      // Sellers can access seller-* routes and other specific routes
+    } else if (!isAuthenticated && inTabsGroup && segments[1]?.startsWith('seller-')) {
+      // Unauthenticated user trying to access seller routes → redirect to catalog
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, currentUser, segments, isAppReady]);
