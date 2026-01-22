@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
+import LoginPrompt from '../../components/auth/LoginPrompt';
 
 export default function WishlistScreen() {
   const {
@@ -53,25 +54,11 @@ export default function WishlistScreen() {
           <Text style={styles.headerTitle}>Lista de Desejos</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.emptyContainer}>
-          <Ionicons name="heart-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Faça login para ver seus favoritos</Text>
-          <Text style={styles.emptyText}>
-            Entre na sua conta para salvar produtos e acessar sua lista de desejos
-          </Text>
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.loginButtonText}>Entrar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={() => router.push('/auth/register')}
-          >
-            <Text style={styles.registerButtonText}>Criar conta</Text>
-          </TouchableOpacity>
-        </View>
+        <LoginPrompt
+          icon="heart-outline"
+          title="Faça login para ver seus favoritos"
+          message="Entre na sua conta para salvar produtos e acessar sua lista de desejos"
+        />
       </View>
     );
   }
@@ -206,32 +193,6 @@ const styles = StyleSheet.create({
   },
   shopButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loginButton: {
-    marginTop: 24,
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  registerButton: {
-    marginTop: 12,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D4AF37',
-  },
-  registerButtonText: {
-    color: '#D4AF37',
     fontSize: 16,
     fontWeight: 'bold',
   },

@@ -9,8 +9,10 @@ import {
   ActivityIndicator,
   Linking,
   Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import type { Order, OrderItem } from '../../services/api';
 
 type OrderStatus = Order['status'];
@@ -33,12 +35,14 @@ const STATUS_CONFIG: Record<OrderStatus, {
   sellerLabel: string;
   buyerLabel: string;
   buyerMessage?: string;
+  sellerMessage?: string;
 }> = {
   pending: {
     color: '#6b7280',
     bgColor: '#f3f4f6',
     sellerLabel: 'Aguardando pagamento',
-    buyerLabel: 'Aguardando pagamento'
+    buyerLabel: 'Aguardando pagamento',
+    sellerMessage: 'Aguardando confirmação de pagamento do comprador.'
   },
   confirmed: {
     color: '#111827',
@@ -52,28 +56,32 @@ const STATUS_CONFIG: Record<OrderStatus, {
     bgColor: '#fff7ed',
     sellerLabel: 'Aguardando envio',
     buyerLabel: 'Aguardando envio',
-    buyerMessage: 'Seu pedido foi aceito e está sendo confeccionado.'
+    buyerMessage: 'Seu pedido foi aceito e está sendo confeccionado.',
+    sellerMessage: 'Confeccione o produto e informe o código de rastreio.'
   },
   shipped: {
     color: '#2563eb',
     bgColor: '#eff6ff',
     sellerLabel: 'Postado',
     buyerLabel: 'Postado',
-    buyerMessage: 'Seu pedido foi postado, confirme quando ele chegar.'
+    buyerMessage: 'Seu pedido foi postado, confirme quando ele chegar.',
+    sellerMessage: 'Produto enviado. Aguardando confirmação de entrega.'
   },
   delivered: {
     color: '#16a34a',
     bgColor: '#f0fdf4',
     sellerLabel: 'Concluído',
     buyerLabel: 'Concluído',
-    buyerMessage: 'Pedido entregue com sucesso!'
+    buyerMessage: 'Pedido entregue com sucesso!',
+    sellerMessage: 'Pedido concluído com sucesso!'
   },
   cancelled: {
     color: '#dc2626',
     bgColor: '#fef2f2',
     sellerLabel: 'Cancelado',
     buyerLabel: 'Cancelado',
-    buyerMessage: 'Seu pedido foi cancelado pelo vendedor.'
+    buyerMessage: 'Seu pedido foi cancelado pelo vendedor.',
+    sellerMessage: 'Pedido cancelado.'
   },
 };
 
@@ -108,6 +116,17 @@ export default function OrderCard({
     if (order.tracking_number) {
       // Open tracking URL (generic correios tracking)
       Linking.openURL(`https://rastreamento.correios.com.br/app/index.php?objetos=${order.tracking_number}`);
+    }
+  };
+
+  const handleCopyTrackingNumber = async () => {
+    if (order.tracking_number) {
+      try {
+        await Clipboard.setStringAsync(order.tracking_number);
+        Alert.alert('Copiado!', 'Código de rastreio copiado para a área de transferência');
+      } catch (error) {
+        Alert.alert('Erro', 'Falha ao copiar código de rastreio');
+      }
     }
   };
 
@@ -165,10 +184,16 @@ export default function OrderCard({
 
       {/* Product Info */}
       <View style={styles.productRow}>
-        <Image
-          source={{ uri: product?.thumbnail || product?.images?.[0] || 'https://via.placeholder.com/60' }}
-          style={styles.productImage}
-        />
+        {viewType === 'seller' ? (
+          <View style={styles.productIconContainer}>
+            <Text style={styles.ringEmoji}>💍</Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: product?.thumbnail || product?.images?.[0] || 'https://via.placeholder.com/60' }}
+            style={styles.productImage}
+          />
+        )}
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={2}>
             {product?.name || `Produto #${item?.product_id}`}
@@ -181,6 +206,16 @@ export default function OrderCard({
           </View>
         )}
       </View>
+
+      {/* Buyer Info (for seller view) */}
+      {viewType === 'seller' && order.buyer && (
+        <View style={styles.buyerInfoContainer}>
+          <View style={styles.buyerInfoRow}>
+            <Ionicons name="person-outline" size={16} color="#6b7280" />
+            <Text style={styles.buyerInfoText}>{order.buyer.name}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Customization (Ring sizes and names) */}
       {customization && (
@@ -231,7 +266,7 @@ export default function OrderCard({
       {order.tracking_number && order.status === 'shipped' && (
         <View style={styles.trackingContainer}>
           <Text style={styles.trackingCode} numberOfLines={1}>{order.tracking_number}</Text>
-          <TouchableOpacity onPress={() => {/* Copy to clipboard */}}>
+          <TouchableOpacity onPress={handleCopyTrackingNumber}>
             <Ionicons name="copy-outline" size={18} color="#111827" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.trackingButton} onPress={handleTrackingPress}>
@@ -240,52 +275,65 @@ export default function OrderCard({
         </View>
       )}
 
-      {/* Seller: Tracking Input for accepted orders */}
+      {/* Seller: Message and Tracking Input for accepted orders */}
       {viewType === 'seller' && order.status === 'accepted' && (
-        <View style={styles.trackingInputContainer}>
-          <TextInput
-            style={styles.trackingInput}
-            placeholder="Digite o código de rastreio *"
-            placeholderTextColor="#9ca3af"
-            value={trackingInput}
-            onChangeText={setTrackingInput}
-          />
-          <TouchableOpacity
-            style={[styles.shipButton, !trackingInput.trim() && styles.shipButtonDisabled]}
-            onPress={handleShipSubmit}
-            disabled={!trackingInput.trim() || isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.shipButtonText}>Enviar produto</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <>
+          {status.sellerMessage && (
+            <Text style={styles.statusMessage}>{status.sellerMessage}</Text>
+          )}
+          <View style={styles.trackingInputContainer}>
+            <TextInput
+              style={styles.trackingInput}
+              placeholder="Digite o código de rastreio *"
+              placeholderTextColor="#9ca3af"
+              value={trackingInput}
+              onChangeText={setTrackingInput}
+            />
+            <TouchableOpacity
+              style={[styles.shipButton, !trackingInput.trim() && styles.shipButtonDisabled]}
+              onPress={handleShipSubmit}
+              disabled={!trackingInput.trim() || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.shipButtonText}>Enviar produto</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
       {/* Seller: Accept/Reject for confirmed orders */}
       {viewType === 'seller' && order.status === 'confirmed' && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.rejectButton}
-            onPress={() => onReject?.(order)}
-            disabled={isLoading}
-          >
-            <Text style={styles.rejectButtonText}>Recusar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.acceptButton}
-            onPress={() => onAccept?.(order)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.acceptButtonText}>Aceitar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => onReject?.(order)}
+              disabled={isLoading}
+            >
+              <Text style={styles.rejectButtonText}>Recusar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={() => onAccept?.(order)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.acceptButtonText}>Aceitar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {onViewAddress && (
+            <TouchableOpacity style={styles.addressButton} onPress={() => onViewAddress(order)}>
+              <Ionicons name="location-outline" size={16} color="#111827" />
+              <Text style={styles.addressButtonText}>Ver endereço</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
       {/* Buyer: Status message */}
@@ -293,8 +341,13 @@ export default function OrderCard({
         <Text style={styles.statusMessage}>{status.buyerMessage}</Text>
       )}
 
-      {/* Ver endereço button */}
-      {onViewAddress && ['confirmed', 'accepted', 'shipped', 'delivered'].includes(order.status) && (
+      {/* Seller: Status message (for pending, shipped, delivered, cancelled) */}
+      {viewType === 'seller' && status.sellerMessage && !['confirmed', 'accepted'].includes(order.status) && (
+        <Text style={styles.statusMessage}>{status.sellerMessage}</Text>
+      )}
+
+      {/* Seller: Ver endereço button for other statuses */}
+      {viewType === 'seller' && order.status !== 'confirmed' && onViewAddress && ['accepted', 'shipped', 'delivered'].includes(order.status) && (
         <TouchableOpacity style={styles.addressButton} onPress={() => onViewAddress(order)}>
           <Ionicons name="location-outline" size={16} color="#111827" />
           <Text style={styles.addressButtonText}>Ver endereço</Text>
@@ -357,6 +410,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#f3f4f6',
   },
+  productIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: '#fffbeb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringEmoji: {
+    fontSize: 32,
+  },
   productInfo: {
     flex: 1,
     marginLeft: 12,
@@ -377,6 +441,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+  },
+  buyerInfoContainer: {
+    marginBottom: 12,
+  },
+  buyerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  buyerInfoText: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
   customizationContainer: {
     marginBottom: 12,
@@ -443,7 +520,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 14,
@@ -453,7 +530,7 @@ const styles = StyleSheet.create({
   shipButton: {
     backgroundColor: '#111827',
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 24,
     alignItems: 'center',
   },
   shipButtonDisabled: {
@@ -467,14 +544,15 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   rejectButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
   },
   rejectButtonText: {
@@ -485,7 +563,7 @@ const styles = StyleSheet.create({
   acceptButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
     backgroundColor: '#111827',
     alignItems: 'center',
   },
@@ -504,13 +582,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    alignSelf: 'flex-start',
   },
   addressButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#111827',
   },

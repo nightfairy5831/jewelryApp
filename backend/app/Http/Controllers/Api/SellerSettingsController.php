@@ -23,15 +23,7 @@ class SellerSettingsController extends Controller
 
         $mode = config('services.mercadopago.mode');
 
-        // In sandbox mode, return mode without OAuth URL
-        if ($mode === 'sandbox') {
-            return response()->json([
-                'mode' => 'sandbox',
-                'oauth_url' => null,
-            ]);
-        }
-
-        // Production mode - return OAuth URL
+        // Generate OAuth URL for both sandbox and production modes
         $params = http_build_query([
             'client_id' => config('services.mercadopago.client_id'),
             'response_type' => 'code',
@@ -41,7 +33,7 @@ class SellerSettingsController extends Controller
         ]);
 
         return response()->json([
-            'mode' => 'production',
+            'mode' => $mode,
             'oauth_url' => "https://auth.mercadopago.com.br/authorization?{$params}",
         ]);
     }
@@ -60,13 +52,23 @@ class SellerSettingsController extends Controller
         $user = \App\Models\User::findOrFail($userId);
 
         try {
-            $response = Http::asForm()->post('https://api.mercadopago.com/oauth/token', [
+            $mode = config('services.mercadopago.mode');
+
+            // Build token exchange payload
+            $payload = [
                 'client_id' => config('services.mercadopago.client_id'),
                 'client_secret' => config('services.mercadopago.client_secret'),
                 'grant_type' => 'authorization_code',
                 'code' => $request->code,
                 'redirect_uri' => config('services.mercadopago.redirect_uri'),
-            ]);
+            ];
+
+            // Add test_token parameter for sandbox mode
+            if ($mode === 'sandbox') {
+                $payload['test_token'] = true;
+            }
+
+            $response = Http::asForm()->post('https://api.mercadopago.com/oauth/token', $payload);
 
             if (!$response->successful()) {
                 Log::error('MercadoPago OAuth failed', ['response' => $response->json()]);
@@ -85,6 +87,7 @@ class SellerSettingsController extends Controller
             Log::info('Seller connected MercadoPago', [
                 'seller_id' => $user->id,
                 'mp_user_id' => $data['user_id'],
+                'mode' => $mode,
             ]);
 
             // Redirect to app with success
@@ -128,57 +131,5 @@ class SellerSettingsController extends Controller
             'connected' => $user->mercadopago_connected && $user->mercadopago_user_id,
             'user_id' => $user->mercadopago_user_id,
         ]);
-    }
-
-    /**
-     * Connect Mercado Pago using access token directly (sandbox mode)
-     */
-    public function connectWithToken(Request $request)
-    {
-        $user = Auth::user();
-
-        if (!$user->isSeller()) {
-            return response()->json(['error' => 'Only sellers can connect Mercado Pago'], 403);
-        }
-
-        $request->validate([
-            'access_token' => 'required|string',
-        ]);
-
-        try {
-            // Validate token by calling MP API to get user info
-            $response = Http::withToken($request->access_token)
-                ->get('https://api.mercadopago.com/users/me');
-
-            if (!$response->successful()) {
-                Log::error('MercadoPago token validation failed', ['response' => $response->json()]);
-                return response()->json(['error' => 'Invalid access token'], 400);
-            }
-
-            $mpUser = $response->json();
-
-            // Save token to database
-            $user->update([
-                'mercadopago_connected' => true,
-                'mercadopago_user_id' => $mpUser['id'],
-                'mercadopago_access_token' => $request->access_token,
-                'mercadopago_refresh_token' => null, // No refresh token in manual flow
-            ]);
-
-            Log::info('Seller connected MercadoPago with token', [
-                'seller_id' => $user->id,
-                'mp_user_id' => $mpUser['id'],
-            ]);
-
-            return response()->json([
-                'message' => 'Mercado Pago connected successfully',
-                'connected' => true,
-                'user_id' => $mpUser['id'],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('MercadoPago token connection error', ['error' => $e->getMessage()]);
-            return response()->json(['error' => 'Failed to connect Mercado Pago'], 500);
-        }
     }
 }

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { useEffect, useState, useMemo } from 'react';
 import { router } from 'expo-router';
+import LoginPrompt from '../../components/auth/LoginPrompt';
 
 export default function CartScreen() {
   const {
@@ -84,25 +85,11 @@ export default function CartScreen() {
           <Text style={styles.header}>Desejos</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.emptyContainer}>
-          <Ionicons name="cart-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Faça login para ver seus desejos</Text>
-          <Text style={styles.emptyText}>
-            Entre na sua conta para adicionar produtos e gerenciar seus desejos
-          </Text>
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.loginButtonText}>Entrar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={() => router.push('/auth/register')}
-          >
-            <Text style={styles.registerButtonText}>Criar conta</Text>
-          </TouchableOpacity>
-        </View>
+        <LoginPrompt
+          icon="cart-outline"
+          title="Faça login para ver seus desejos"
+          message="Entre na sua conta para adicionar produtos e gerenciar seus desejos"
+        />
       </View>
     );
   }
@@ -160,104 +147,131 @@ export default function CartScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with Back Button */}
-      <View style={styles.headerContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.header}>Desejos ({cartItemsCount})</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      {/* Select All Row */}
-      <TouchableOpacity style={styles.selectAllRow} onPress={toggleSelectAll}>
-        <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
-          {isAllSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+      <View style={styles.contentWrapper}>
+        {/* Header with Icon */}
+        <View style={styles.headerContainer}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.headerIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.header}>Desejos</Text>
         </View>
-        <Text style={styles.selectAllText}>Selecionar todos</Text>
-      </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView}>
-        {cart.cart.items.map((item) => (
-          <View key={item.id} style={styles.cartItem}>
-            {/* Checkbox */}
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              onPress={() => toggleItemSelection(item.id)}
-            >
-              <View style={[styles.checkbox, selectedItems.has(item.id) && styles.checkboxSelected]}>
-                {selectedItems.has(item.id) && <Ionicons name="checkmark" size={16} color="#fff" />}
+        {/* Select All Row */}
+        <TouchableOpacity style={styles.selectAllRow} onPress={toggleSelectAll}>
+          <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
+            {isAllSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+          </View>
+          <Text style={styles.selectAllText}>Selecionar todos</Text>
+        </TouchableOpacity>
+
+        <ScrollView style={styles.scrollView}>
+          {cart.cart.items.map((item) => {
+            const itemTotal = Number(item.price_at_time_of_add) * item.quantity;
+            const installmentPrice = itemTotal / 12;
+
+            return (
+              <View key={item.id} style={styles.cartItem}>
+                {/* Checkbox */}
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  onPress={() => toggleItemSelection(item.id)}
+                >
+                  <View style={[styles.checkbox, selectedItems.has(item.id) && styles.checkboxSelected]}>
+                    {selectedItems.has(item.id) && <Ionicons name="checkmark" size={16} color="#fff" />}
+                  </View>
+                </TouchableOpacity>
+
+                <Image
+                  source={{ uri: item.product?.images?.[0] || item.product?.thumbnail || 'https://via.placeholder.com/60' }}
+                  style={styles.productImage}
+                />
+                <View style={styles.itemDetails}>
+                  <View style={styles.itemHeader}>
+                    <Text style={styles.productName} numberOfLines={2}>
+                      {item.product?.name || 'Product'}
+                    </Text>
+                    <View style={styles.ratingContainer}>
+                      <Ionicons name="star" size={16} color="#D4AF37" />
+                      <Text style={styles.ratingText}>4.5</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.totalPrice}>
+                    Total: R$ {itemTotal.toFixed(2).replace('.', ',')}
+                  </Text>
+                  <Text style={styles.installmentPrice}>
+                    12x R$ {installmentPrice.toFixed(2).replace('.', ',')}
+                  </Text>
+
+                  <View style={styles.quantityContainer}>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                    >
+                      <Ionicons name="remove" size={18} color="#333" />
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.quantityButton}
+                      onPress={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                    >
+                      <Ionicons name="add" size={18} color="#333" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveItem(item.id)}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#ff4444" />
+                </TouchableOpacity>
               </View>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.summaryContainer}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Subtotal:</Text>
+            <Text style={styles.summaryValue}>R$ {selectedTotals.subtotal.toFixed(2).replace('.', ',')}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Frete:</Text>
+            <Text style={styles.summaryValue}>R$ {selectedTotals.shipping.toFixed(2).replace('.', ',')}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Taxas:</Text>
+            <Text style={styles.summaryValue}>R$ {selectedTotals.tax.toFixed(2).replace('.', ',')}</Text>
+          </View>
+
+          <View style={styles.dottedDivider} />
+
+          <View style={[styles.summaryRow, styles.totalRow]}>
+            <Text style={styles.totalLabel}>Total:</Text>
+            <Text style={styles.totalValue}>R$ {selectedTotals.total.toFixed(2).replace('.', ',')}</Text>
+          </View>
+
+          <View style={styles.solidDivider} />
+
+          <View style={styles.footerButtonsContainer}>
+            <TouchableOpacity
+              style={styles.footerBackButton}
+              onPress={() => router.push('/(tabs)')}
+            >
+              <Ionicons name="arrow-back" size={24} color="#111827" />
             </TouchableOpacity>
 
-            <Image
-              source={{ uri: item.product?.images?.[0] || item.product?.thumbnail || 'https://via.placeholder.com/60' }}
-              style={styles.productImage}
-            />
-            <View style={styles.itemDetails}>
-              <Text style={styles.productName} numberOfLines={1}>
-                {item.product?.name || 'Product'}
-              </Text>
-              <Text style={styles.productPrice}>
-                R$ {Number(item.price_at_time_of_add).toFixed(2)}
-              </Text>
-
-              <View style={styles.quantityContainer}>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                >
-                  <Ionicons name="remove" size={16} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.quantityText}>{item.quantity}</Text>
-                <TouchableOpacity
-                  style={styles.quantityButton}
-                  onPress={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                >
-                  <Ionicons name="add" size={16} color="#333" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
             <TouchableOpacity
-              style={styles.removeButton}
-              onPress={() => handleRemoveItem(item.id)}
+              style={[styles.checkoutButton, selectedItems.size === 0 && styles.checkoutButtonDisabled]}
+              onPress={handleCheckout}
+              disabled={selectedItems.size === 0}
             >
-              <Ionicons name="trash-outline" size={20} color="#ff4444" />
+              <Text style={styles.checkoutButtonText}>Comprar Desejo</Text>
             </TouchableOpacity>
           </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Subtotal:</Text>
-          <Text style={styles.summaryValue}>R$ {selectedTotals.subtotal.toFixed(2)}</Text>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Frete:</Text>
-          <Text style={styles.summaryValue}>R$ {selectedTotals.shipping.toFixed(2)}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Taxas:</Text>
-          <Text style={styles.summaryValue}>R$ {selectedTotals.tax.toFixed(2)}</Text>
-        </View>
-        <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalValue}>R$ {selectedTotals.total.toFixed(2)}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.checkoutButton, selectedItems.size === 0 && styles.checkoutButtonDisabled]}
-          onPress={handleCheckout}
-          disabled={selectedItems.size === 0}
-        >
-          <Text style={styles.checkoutButtonText}>Comprar Desejo</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -266,26 +280,29 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
+  },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginBottom: 12,
+    marginTop: 40
+  },
+  headerIcon: {
+    width: 80,
+    height: 80,
+    marginRight: 10,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -293,7 +310,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    fontSize: 18,
+    fontSize: 25,
     fontWeight: 'bold',
     color: '#111827',
   },
@@ -327,59 +344,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  loginButton: {
-    marginTop: 24,
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  registerButton: {
-    marginTop: 12,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#D4AF37',
-  },
-  registerButtonText: {
-    color: '#D4AF37',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    marginHorizontal: 12,
-    marginVertical: 6,
-    padding: 10,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    marginVertical: 8,
+    padding: 8,
+    borderRadius: 30,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   productImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 6,
+    width: 90,
+    height: 90,
+    borderRadius: 10,
   },
   itemDetails: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 14,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
   },
   productName: {
-    fontSize: 14,
+    flex: 1,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
+    marginRight: 8,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    marginLeft: 4,
+  },
+  totalPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  installmentPrice: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 10,
   },
   productPrice: {
     fontSize: 15,
@@ -390,19 +405,20 @@ const styles = StyleSheet.create({
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
   },
   quantityButton: {
-    width: 26,
-    height: 26,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    backgroundColor: '#fff',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   quantityText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '600',
     marginHorizontal: 12,
     minWidth: 24,
     textAlign: 'center',
@@ -412,58 +428,80 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     backgroundColor: '#fff',
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   summaryRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    justifyContent: 'flex-end',
+    marginBottom: 6,
+    alignItems: 'center',
+    gap: 8,
   },
   summaryLabel: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: '#111827',
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333',
+    color: '#111827',
   },
   totalRow: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    marginTop: 4,
+    marginBottom: 12,
   },
   totalLabel: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#111827',
   },
   totalValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#D4AF37',
+    color: '#111827',
   },
-  checkoutButton: {
+  dottedDivider: {
+    height: 1,
+    borderTopWidth: 1,
+    borderTopColor: '#d1d5db',
+    borderStyle: 'dotted',
+    marginVertical: 8,
+  },
+  solidDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 12,
+  },
+  footerButtonsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#16a34a',
-    paddingVertical: 12,
-    borderRadius: 8,
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  footerBackButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+  },
+  checkoutButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#111827',
+    paddingVertical: 12,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
   },
   checkoutButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   checkoutButtonDisabled: {
@@ -472,11 +510,8 @@ const styles = StyleSheet.create({
   selectAllRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 8,
   },
   selectAllText: {
     fontSize: 14,
@@ -484,11 +519,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   checkboxContainer: {
-    paddingRight: 8,
+    paddingRight: 10,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: '#d1d5db',
@@ -497,7 +532,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#D4AF37',
-    borderColor: '#D4AF37',
+    backgroundColor: '#111827',
+    borderColor: '#111827',
   },
 });

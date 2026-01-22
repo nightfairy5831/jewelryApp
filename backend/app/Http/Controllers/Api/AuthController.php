@@ -24,6 +24,7 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'role' => 'nullable|string|in:buyer,seller',
+            'avatar_url' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -45,6 +46,7 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'phone' => $request->phone,
             'role' => $role,
+            'avatar_url' => $request->avatar_url,
             'seller_status' => $sellerStatus,
             'seller_requested_at' => $role === 'seller' ? now() : null,
         ]);

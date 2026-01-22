@@ -28,6 +28,76 @@ class UploadController extends Controller
     ];
 
     /**
+     * Upload avatar image (public - no authentication required)
+     * Used during user registration
+     */
+    public function uploadAvatar(Request $request)
+    {
+        try {
+            $request->validate([
+                'file' => 'required|file|max:5120', // 5MB max for avatars
+            ]);
+
+            $file = $request->file('file');
+
+            // Validate MIME type (only images)
+            if (!in_array($file->getMimeType(), self::ALLOWED_MIMES['image'])) {
+                return response()->json([
+                    'message' => 'Invalid file type. Only images are allowed.',
+                    'allowed_types' => self::ALLOWED_MIMES['image'],
+                ], 422);
+            }
+
+            // Generate unique filename
+            $extension = $file->getClientOriginalExtension();
+            if (!$extension) {
+                $extension = match($file->getMimeType()) {
+                    'image/jpeg', 'image/jpg' => 'jpg',
+                    'image/png' => 'png',
+                    'image/gif' => 'gif',
+                    'image/webp' => 'webp',
+                    default => 'jpg',
+                };
+            }
+
+            // Validate extension
+            if (!in_array(strtolower($extension), self::ALLOWED_EXTENSIONS['image'])) {
+                return response()->json([
+                    'message' => 'Invalid file extension',
+                    'allowed_extensions' => self::ALLOWED_EXTENSIONS['image'],
+                ], 422);
+            }
+
+            $filename = Str::uuid() . '.' . $extension;
+            $path = "avatars/{$filename}";
+
+            try {
+                $fileContent = file_get_contents($file->getRealPath());
+                $uploaded = Storage::disk('r2')->put($path, $fileContent);
+
+                if (!$uploaded) {
+                    return response()->json(['message' => 'Upload to R2 failed'], 500);
+                }
+
+                $url = Storage::disk('r2')->url($path);
+            } catch (\Exception $uploadException) {
+                return response()->json([
+                    'message' => 'R2 upload error: ' . $uploadException->getMessage()
+                ], 500);
+            }
+
+            return response()->json([
+                'url' => $url,
+                'key' => $path,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Upload failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Upload file to Cloudflare R2
      */
     public function upload(Request $request)

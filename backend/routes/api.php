@@ -22,6 +22,9 @@ use App\Http\Controllers\Api\ShippingController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Public avatar upload (for registration)
+Route::post('/upload/avatar', [UploadController::class, 'uploadAvatar']);
+
 // Public product routes
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
@@ -99,7 +102,6 @@ Route::middleware('auth:api')->group(function () {
         // Mercado Pago OAuth
         Route::get('/mercadopago/oauth-url', [SellerSettingsController::class, 'getOAuthUrl']);
         Route::get('/mercadopago/status', [SellerSettingsController::class, 'getStatus']);
-        Route::post('/mercadopago/connect-token', [SellerSettingsController::class, 'connectWithToken']);
         Route::post('/mercadopago/disconnect', [SellerSettingsController::class, 'disconnect']);
 
         // Refund management (seller)

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   Alert,
   Modal,
   TextInput,
@@ -34,7 +33,6 @@ export default function SellerRefundsScreen() {
 
   const [refunds, setRefunds] = useState<SellerRefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('pending');
 
   const [selectedRefund, setSelectedRefund] = useState<SellerRefundRequest | null>(null);
@@ -60,13 +58,7 @@ export default function SellerRefundsScreen() {
       Alert.alert('Erro', err.message || 'Falha ao carregar reembolsos');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchRefunds();
   };
 
   const handleApprove = (refund: SellerRefundRequest) => {
@@ -205,11 +197,8 @@ export default function SellerRefundsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D4AF37']} />
-        }
       >
-        {loading && !refreshing ? (
+        {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#D4AF37" />
             <Text style={styles.loadingText}>Carregando...</Text>

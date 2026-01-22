@@ -24,8 +24,8 @@ class MessageController extends Controller
                     'to_user_name' => $message->toUser->name,
                     'question' => $message->question,
                     'answer' => $message->answer,
-                    'answered_at' => $message->answered_at?->diffForHumans(),
-                    'created_at' => $message->created_at->diffForHumans(),
+                    'answered_at' => $message->answered_at?->toISOString(),
+                    'created_at' => $message->created_at->toISOString(),
                 ];
             });
 
@@ -52,8 +52,8 @@ class MessageController extends Controller
                     'to_user_name' => $message->toUser->name,
                     'question' => $message->question,
                     'answer' => $message->answer,
-                    'answered_at' => $message->answered_at?->diffForHumans(),
-                    'created_at' => $message->created_at->diffForHumans(),
+                    'answered_at' => $message->answered_at?->toISOString(),
+                    'created_at' => $message->created_at->toISOString(),
                 ];
             });
 
@@ -85,7 +85,7 @@ class MessageController extends Controller
             'question' => $message->question,
             'answer' => $message->answer,
             'answered_at' => null,
-            'created_at' => $message->created_at->diffForHumans(),
+            'created_at' => $message->created_at->toISOString(),
         ], 201);
     }
 
@@ -118,8 +118,8 @@ class MessageController extends Controller
             'to_user_name' => $message->toUser->name,
             'question' => $message->question,
             'answer' => $message->answer,
-            'answered_at' => $message->answered_at->diffForHumans(),
-            'created_at' => $message->created_at->diffForHumans(),
+            'answered_at' => $message->answered_at->toISOString(),
+            'created_at' => $message->created_at->toISOString(),
         ]);
     }
 

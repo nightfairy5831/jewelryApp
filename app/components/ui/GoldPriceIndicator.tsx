@@ -9,7 +9,6 @@ interface GoldPriceIndicatorProps {
 
 export default function GoldPriceIndicator({ compact = false }: GoldPriceIndicatorProps) {
   const [goldPrice, setGoldPrice] = useState<GoldPriceData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,7 +20,6 @@ export default function GoldPriceIndicator({ compact = false }: GoldPriceIndicat
 
   const fetchGoldPrice = async () => {
     try {
-      setLoading(true);
       const response = await goldPriceApi.getCurrentPrice();
       if (response.success) {
         setGoldPrice(response.data);
@@ -29,21 +27,15 @@ export default function GoldPriceIndicator({ compact = false }: GoldPriceIndicat
       }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch gold price');
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (loading && !goldPrice) {
-    return (
-      <View style={[styles.container, compact && styles.containerCompact]}>
-        <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.loadingText}>Carregando...</Text>
-      </View>
-    );
+  // Don't show loading state, just return null until data is loaded
+  if (!goldPrice) {
+    return null;
   }
 
-  if (error || !goldPrice) {
+  if (error && !goldPrice) {
     return null;
   }
 
@@ -125,10 +117,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#111827',
-  },
-  loadingText: {
-    fontSize: 12,
-    color: '#666',
   },
   compactText: {
     fontSize: 12,

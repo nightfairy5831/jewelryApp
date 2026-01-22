@@ -114,18 +114,21 @@ class AppServiceProvider extends ServiceProvider
 
         // 4. Shipping Notification Email - Sent when order is shipped
         Event::listen(\App\Events\OrderShipped::class, function ($event) {
+            $order = $event->order;
+            $buyer = $order->buyer;
+
             SendEmailJob::dispatch(
                 'shipping',
-                $event->user->email,
+                $buyer->email,
                 [
-                    'userName' => $event->user->name,
-                    'orderNumber' => $event->order->order_number ?? '#' . $event->order->id,
-                    'trackingNumber' => $event->trackingNumber,
+                    'userName' => $buyer->name,
+                    'orderNumber' => $order->order_number ?? '#' . $order->id,
+                    'trackingNumber' => $order->tracking_number,
                 ],
                 [
-                    'order_id' => $event->order->id,
-                    'user_id' => $event->user->id,
-                    'tracking_number' => $event->trackingNumber,
+                    'order_id' => $order->id,
+                    'user_id' => $buyer->id,
+                    'tracking_number' => $order->tracking_number,
                     'event' => 'order_shipped',
                 ]
             );

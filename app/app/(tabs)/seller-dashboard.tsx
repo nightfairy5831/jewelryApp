@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  RefreshControl,
   Linking,
   Alert,
 } from 'react-native';
@@ -16,7 +15,7 @@ import { useRouter } from 'expo-router';
 import * as ExpoLinking from 'expo-linking';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { sellerApi, type SellerDashboard } from '../../services/api';
+import { sellerApi, messageApi, refundApi, type SellerDashboard } from '../../services/api';
 import FABMenu from '../../components/FABMenu';
 import GoldPriceIndicator from '../../components/ui/GoldPriceIndicator';
 
@@ -27,10 +26,11 @@ export default function SellerDashboardScreen() {
 
   const [dashboard, setDashboard] = useState<SellerDashboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mpStatus, setMpStatus] = useState<{ connected: boolean; user_id: string | null }>({ connected: false, user_id: null });
   const [mpLoading, setMpLoading] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const [refundCount, setRefundCount] = useState(0);
 
   // Check if seller can perform actions (must be approved and have MP connected)
   const isApproved = currentUser?.seller_status === 'approved';
@@ -46,11 +46,33 @@ export default function SellerDashboardScreen() {
     }
   }, [authToken]);
 
+  const fetchMessageCount = useCallback(async () => {
+    if (!authToken) return;
+    try {
+      const messages = await messageApi.getMyMessages(authToken);
+      setMessageCount(messages?.length || 0);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  }, [authToken]);
+
+  const fetchRefundCount = useCallback(async () => {
+    if (!authToken) return;
+    try {
+      const refunds = await refundApi.getSellerRefunds(authToken);
+      setRefundCount(refunds?.refund_requests?.length || 0);
+    } catch (err) {
+      console.error('Error fetching refunds:', err);
+    }
+  }, [authToken]);
+
   useEffect(() => {
     // Only fetch dashboard if user is authenticated AND is a seller
     if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
       fetchDashboard();
       fetchMpStatus();
+      fetchMessageCount();
+      fetchRefundCount();
     } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
       // Stop loading if not authenticated or not a seller (let _layout.tsx handle redirect)
       setLoading(false);
@@ -112,14 +134,7 @@ export default function SellerDashboardScreen() {
       setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDashboard();
-    fetchMpStatus();
   };
 
   const handleConnectMercadoPago = async () => {
@@ -128,7 +143,13 @@ export default function SellerDashboardScreen() {
     setMpLoading(true);
     try {
       const { oauth_url } = await sellerApi.getMercadoPagoOAuthUrl(authToken);
-      await Linking.openURL(oauth_url);
+
+      if (oauth_url) {
+        // Open OAuth URL for both sandbox and production modes
+        await Linking.openURL(oauth_url);
+      } else {
+        Alert.alert('Erro', 'URL de autenticação não disponível');
+      }
     } catch (err: any) {
       Alert.alert('Erro', err.message || 'Falha ao conectar com Mercado Pago');
     } finally {
@@ -225,9 +246,6 @@ export default function SellerDashboardScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
-        }
       >
         {/* Gold Price Indicator */}
         <View style={styles.goldPriceContainer}>
@@ -311,37 +329,53 @@ export default function SellerDashboardScreen() {
 
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#dbeafe' }]}>
-              <Ionicons name="cube-outline" size={24} color="#2563eb" />
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-products')}
+            disabled={!canPerformActions}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: '#bfdbfe' }]}>
+              <Ionicons name="cube-outline" size={24} color="#1e40af" />
             </View>
             <Text style={styles.statValue}>{analytics?.products.total || 0}</Text>
             <Text style={styles.statLabel}>Produtos</Text>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#dcfce7' }]}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#16a34a" />
-            </View>
-            <Text style={styles.statValue}>{analytics?.products.approved || 0}</Text>
-            <Text style={styles.statLabel}>Aprovados</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#fef3c7' }]}>
-              <Ionicons name="time-outline" size={24} color="#ca8a04" />
-            </View>
-            <Text style={styles.statValue}>{analytics?.products.pending || 0}</Text>
-            <Text style={styles.statLabel}>Pendentes</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, { backgroundColor: '#fce7f3' }]}>
-              <Ionicons name="cart-outline" size={24} color="#be185d" />
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-orders')}
+            disabled={!canPerformActions}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: '#bbf7d0' }]}>
+              <Ionicons name="receipt-outline" size={24} color="#15803d" />
             </View>
             <Text style={styles.statValue}>{analytics?.orders.total || 0}</Text>
             <Text style={styles.statLabel}>Pedidos</Text>
-          </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-messages')}
+            disabled={!canPerformActions}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: '#e9d5ff' }]}>
+              <Ionicons name="chatbubbles-outline" size={24} color="#7c3aed" />
+            </View>
+            <Text style={styles.statValue}>{messageCount}</Text>
+            <Text style={styles.statLabel}>Mensagens</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-refunds')}
+            disabled={!canPerformActions}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: '#fed7aa' }]}>
+              <Ionicons name="cash-outline" size={24} color="#ea580c" />
+            </View>
+            <Text style={styles.statValue}>{refundCount}</Text>
+            <Text style={styles.statLabel}>Reembolsos</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Revenue Card */}
@@ -363,7 +397,7 @@ export default function SellerDashboardScreen() {
 
           <TouchableOpacity
             style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
-            onPress={() => canPerformActions && router.push('/seller/product-form')}
+            onPress={() => canPerformActions && router.push('/(tabs)/product-form')}
             disabled={!canPerformActions}
           >
             <View style={styles.actionIconContainer}>
@@ -421,7 +455,7 @@ export default function SellerDashboardScreen() {
             </View>
             <View style={styles.actionContent}>
               <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
-                Meus Pedidos
+                Minhas vendas
               </Text>
               <Text style={styles.actionDescription}>
                 {canPerformActions
@@ -438,11 +472,36 @@ export default function SellerDashboardScreen() {
 
           <TouchableOpacity
             style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
+            onPress={() => canPerformActions && router.push('/(tabs)/seller-messages')}
+            disabled={!canPerformActions}
+          >
+            <View style={styles.actionIconContainer}>
+              <Ionicons name="chatbubbles-outline" size={32} color={canPerformActions ? "#2563eb" : "#9ca3af"} />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
+                Mensagens
+              </Text>
+              <Text style={styles.actionDescription}>
+                {canPerformActions
+                  ? "Converse com seus clientes"
+                  : "Conecte o MP e aguarde aprovação"}
+              </Text>
+            </View>
+            {canPerformActions ? (
+              <Ionicons name="chevron-forward" size={24} color="#9ca3af" />
+            ) : (
+              <Ionicons name="lock-closed" size={24} color="#9ca3af" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, !canPerformActions && styles.actionCardDisabled]}
             onPress={() => canPerformActions && router.push('/(tabs)/seller-refunds')}
             disabled={!canPerformActions}
           >
             <View style={styles.actionIconContainer}>
-              <Ionicons name="return-down-back-outline" size={32} color={canPerformActions ? "#f97316" : "#9ca3af"} />
+              <Ionicons name="cash-outline" size={32} color={canPerformActions ? "#2563eb" : "#9ca3af"} />
             </View>
             <View style={styles.actionContent}>
               <Text style={[styles.actionTitle, !canPerformActions && styles.actionTitleDisabled]}>
