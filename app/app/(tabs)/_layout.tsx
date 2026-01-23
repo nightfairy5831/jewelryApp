@@ -16,7 +16,6 @@ export default function TabLayout() {
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="upload" />
       <Tabs.Screen name="cart" />
-      <Tabs.Screen name="wishlist" />
     </Tabs>
   );
 }

@@ -516,10 +516,23 @@ export default function CatalogScreen() {
 
               <View style={styles.horizontalDivider} />
 
-              {/* Bottom: Wishlist */}
+              {/* Bottom: Cart/Desejos */}
               <TouchableOpacity
                 style={styles.cartCell}
-                onPress={() => router.push('/(tabs)/cart')}
+                onPress={() => {
+                  if (!isAuthenticated) {
+                    Alert.alert(
+                      'Login Necessário',
+                      'Por favor, faça login para adicionar produtos ao carrinho',
+                      [
+                        { text: 'CANCELAR', style: 'cancel' },
+                        { text: 'FAZER LOGIN', onPress: () => router.push('/auth/login') },
+                      ]
+                    );
+                  } else {
+                    router.push('/(tabs)/cart');
+                  }
+                }}
               >
                 <Image source={require('../../assets/icon.png')} style={styles.wishesIconLarge} resizeMode="contain" />
                 <View style={styles.wishesCountBadge}>

@@ -35,9 +35,7 @@ export function useCurrentUser() {
         // Optional fields that might not be in token
         phone: null,
         seller_approved: payload.seller_status === 'approved',
-        seller_requested_at: null,
-        created_at: null,
-        updated_at: null,
+        createdAt: payload.created_at || null,
       };
 
       return userData;

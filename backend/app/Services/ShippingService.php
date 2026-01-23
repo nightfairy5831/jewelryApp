@@ -10,68 +10,76 @@ use Illuminate\Support\Str;
 class ShippingService
 {
     private string $baseUrl;
-    private ?string $apiKey;
+    private ?string $token;
+    private string $userId;
+    private string $shippingCompanyId;
+    private string $defaultModality;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.apponlog.base_url', 'https://api.apponlog.com.br');
-        $this->apiKey = config('services.apponlog.api_key');
+        $this->baseUrl = config('services.apponlog.base_url', 'https://apponlog.com.br');
+        $this->token = config('services.apponlog.token');
+        $this->userId = config('services.apponlog.user_id', '17926');
+        $this->shippingCompanyId = config('services.apponlog.shipping_company_id', '132226');
+        $this->defaultModality = config('services.apponlog.default_modality', '133');
     }
 
     /**
      * Create a shipment for an order
      */
-    public function createShipment(Order $order): array
+    public function createShipment(Order $order, ?string $modality = null): array
     {
-        // If no API key configured, use mock implementation
-        if (!$this->apiKey) {
+        if (!$this->token) {
             return $this->mockCreateShipment($order);
         }
 
         try {
+            $shippingAddress = json_decode($order->shipping_address, true);
+
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Authorization' => 'Bearer ' . $this->token,
                 'Content-Type' => 'application/json',
-            ])->timeout(30)->post($this->baseUrl . '/shipments', [
-                'reference_id' => $order->order_number,
-                'recipient' => [
-                    'name' => $order->buyer->name,
-                    'email' => $order->buyer->email,
-                    'address' => $order->shipping_address,
-                ],
-                'package' => [
-                    'weight' => 0.5, // Default weight in kg
-                    'dimensions' => [
-                        'length' => 20,
-                        'width' => 15,
-                        'height' => 5,
-                    ],
-                ],
+            ])->timeout(30)->post($this->baseUrl . '/api/pedido/incluir', [
+                'idOperador' => $this->userId,
+                'idModalidade' => $modality ?? $this->defaultModality,
+                'nomeOperador' => $this->shippingCompanyId,
+                'nomeDestinatario' => $order->buyer->name,
+                'emailDestinatario' => $order->buyer->email,
+                'enderecoDestinatario' => $shippingAddress['street'] ?? '',
+                'numeroDestinatario' => $shippingAddress['number'] ?? '',
+                'complementoDestinatario' => $shippingAddress['complement'] ?? '',
+                'bairroDestinatario' => $shippingAddress['neighborhood'] ?? '',
+                'cidadeDestinatario' => $shippingAddress['city'] ?? '',
+                'estadoDestinatario' => $shippingAddress['state'] ?? '',
+                'cepDestinatario' => $shippingAddress['zipcode'] ?? '',
+                'numeroNotaFiscal' => $order->order_number,
+                'valorDeclarado' => $order->total_amount,
+                'peso' => 0.5,
             ]);
 
             if ($response->successful()) {
                 $data = $response->json();
                 return [
                     'success' => true,
-                    'shipment_id' => $data['shipment_id'] ?? null,
-                    'tracking_number' => $data['tracking_number'] ?? null,
-                    'label_url' => $data['label_url'] ?? null,
-                    'carrier' => $data['carrier'] ?? 'apponlog',
+                    'shipment_id' => $data['idPedido'] ?? null,
+                    'tracking_number' => $data['codigoRastreamento'] ?? null,
+                    'label_url' => $data['urlEtiqueta'] ?? null,
+                    'carrier' => 'onlog',
                 ];
             }
 
-            Log::warning('Apponlog API request failed', [
+            Log::warning('Onlog API request failed', [
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
 
             return [
                 'success' => false,
-                'error' => 'Falha ao criar envio: ' . $response->status(),
+                'error' => 'Falha ao criar envio: ' . ($response->json()['data'] ?? $response->status()),
             ];
 
         } catch (\Exception $e) {
-            Log::error('Apponlog shipment creation error: ' . $e->getMessage());
+            Log::error('Onlog shipment creation error: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => 'Erro ao conectar com serviço de envio',
@@ -84,25 +92,24 @@ class ShippingService
      */
     public function getTracking(string $trackingNumber): array
     {
-        // If no API key configured, use mock implementation
-        if (!$this->apiKey) {
+        if (!$this->token) {
             return $this->mockGetTracking($trackingNumber);
         }
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-            ])->timeout(15)->get($this->baseUrl . '/tracking/' . $trackingNumber);
+                'Authorization' => 'Bearer ' . $this->token,
+            ])->timeout(15)->get($this->baseUrl . '/api/rastreamento/' . $trackingNumber);
 
             if ($response->successful()) {
                 $data = $response->json();
                 return [
                     'success' => true,
                     'tracking_number' => $trackingNumber,
-                    'carrier' => $data['carrier'] ?? 'apponlog',
+                    'carrier' => 'onlog',
                     'status' => $data['status'] ?? 'unknown',
-                    'estimated_delivery' => $data['estimated_delivery'] ?? null,
-                    'events' => $data['events'] ?? [],
+                    'estimated_delivery' => $data['previsaoEntrega'] ?? null,
+                    'events' => $data['eventos'] ?? [],
                 ];
             }
 
@@ -112,7 +119,7 @@ class ShippingService
             ];
 
         } catch (\Exception $e) {
-            Log::error('Apponlog tracking error: ' . $e->getMessage());
+            Log::error('Onlog tracking error: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => 'Erro ao conectar com serviço de rastreamento',
@@ -126,14 +133,14 @@ class ShippingService
     private function mockCreateShipment(Order $order): array
     {
         $shipmentId = 'SHP' . strtoupper(Str::random(8));
-        $trackingNumber = 'BR' . rand(100000000, 999999999) . 'AP';
+        $trackingNumber = 'BR' . rand(100000000, 999999999) . 'ON';
 
         return [
             'success' => true,
             'shipment_id' => $shipmentId,
             'tracking_number' => $trackingNumber,
             'label_url' => null,
-            'carrier' => 'apponlog',
+            'carrier' => 'onlog',
         ];
     }
 
@@ -147,7 +154,7 @@ class ShippingService
         return [
             'success' => true,
             'tracking_number' => $trackingNumber,
-            'carrier' => 'apponlog',
+            'carrier' => 'onlog',
             'status' => 'in_transit',
             'estimated_delivery' => $now->addDays(3)->format('Y-m-d'),
             'events' => [
@@ -160,7 +167,7 @@ class ShippingService
                 [
                     'status' => 'posted',
                     'description' => 'Objeto postado',
-                    'location' => 'Agência dos Correios - SP',
+                    'location' => 'Agência Onlog - SP',
                     'timestamp' => $now->subDay()->toIso8601String(),
                 ],
                 [

@@ -3,7 +3,7 @@ import { filterTree, type FilterConfig } from '../data/filterConfig';
 import type { Product } from '../data/products';
 import type { Review } from '../data/reviews';
 import type { Notification } from '../data/notifications';
-import { productApi, authApi, cartApi, orderApi, wishlistApi, type User, type CartResponse, type Order, type WishlistItem } from '../services/api';
+import { productApi, authApi, cartApi, orderApi, type User, type CartResponse, type Order } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type CatalogMode = 'browse' | 'detail';
@@ -27,7 +27,6 @@ interface AppState {
   cart: CartResponse | null;
   cartItemsCount: number;
   orders: Order[];
-  wishlist: WishlistItem[];
 
   // Catalog State
   catalogMode: CatalogMode;
@@ -66,9 +65,6 @@ interface AppState {
   removeFromCart: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   fetchOrders: () => Promise<void>;
-  fetchWishlist: () => Promise<void>;
-  addToWishlist: (productId: number) => Promise<void>;
-  removeFromWishlist: (productId: number) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -90,7 +86,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   cart: null,
   cartItemsCount: 0,
   orders: [],
-  wishlist: [],
 
   // Catalog initial state
   catalogMode: 'browse',
@@ -146,7 +141,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       cart: null,
       cartItemsCount: 0,
       orders: [],
-      wishlist: [],
       isAuthLoading: false,
       error: null,
     });
@@ -412,42 +406,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ orders: response.data });
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-    }
-  },
-
-  fetchWishlist: async () => {
-    const { authToken } = get();
-    if (!authToken) return;
-
-    try {
-      const wishlistItems = await wishlistApi.getWishlist(authToken);
-      set({ wishlist: wishlistItems });
-    } catch (error) {
-      console.error('Failed to fetch wishlist:', error);
-    }
-  },
-
-  addToWishlist: async (productId) => {
-    const { authToken } = get();
-    if (!authToken) throw new Error('Not authenticated');
-
-    try {
-      await wishlistApi.addToWishlist(authToken, productId);
-      await get().fetchWishlist(); // Refresh wishlist
-    } catch (error: any) {
-      throw new Error(error.message || 'Failed to add to wishlist');
-    }
-  },
-
-  removeFromWishlist: async (productId) => {
-    const { authToken } = get();
-    if (!authToken) return;
-
-    try {
-      await wishlistApi.removeFromWishlist(authToken, productId);
-      await get().fetchWishlist(); // Refresh wishlist
-    } catch (error) {
-      console.error('Failed to remove from wishlist:', error);
     }
   },
 }));
