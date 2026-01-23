@@ -3,26 +3,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { useEffect, useState, useMemo } from 'react';
 import { router } from 'expo-router';
-import LoginPrompt from '../../components/auth/LoginPrompt';
 
 export default function CartScreen() {
   const {
     cart,
     cartItemsCount,
-    authToken,
     fetchCart,
     removeFromCart,
     updateCartQuantity,
   } = useAppStore();
 
-  const isAuthenticated = !!authToken;
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchCart();
-    }
-  }, [isAuthenticated]);
+    fetchCart();
+  }, []);
 
   // Initialize all items as selected when cart loads
   useEffect(() => {
@@ -71,28 +66,6 @@ export default function CartScreen() {
 
   const isAllSelected = cart?.cart?.items && cart.cart.items.length > 0 &&
     cart.cart.items.every(item => selectedItems.has(item.id));
-
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.push('/(tabs)')}
-          >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
-          </TouchableOpacity>
-          <Text style={styles.header}>Desejos</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <LoginPrompt
-          icon="cart-outline"
-          title="Faça login para ver seus desejos"
-          message="Entre na sua conta para adicionar produtos e gerenciar seus desejos"
-        />
-      </View>
-    );
-  }
 
   if (!cart || cartItemsCount === 0) {
     return (
@@ -334,10 +307,10 @@ const styles = StyleSheet.create({
   },
   shopButton: {
     marginTop: 24,
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#111827',
     paddingHorizontal: 32,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 25,
   },
   shopButtonText: {
     color: '#fff',

@@ -862,55 +862,6 @@ export const refundApi = {
   },
 };
 
-// Wishlist API
-export interface WishlistItem {
-  id: number;
-  user_id: number;
-  product_id: number;
-  saved_at: string;
-  product?: Product;
-  created_at: string;
-  updated_at: string;
-}
-
-export const wishlistApi = {
-  getWishlist: async (token: string): Promise<WishlistItem[]> => {
-    return await apiCall<WishlistItem[]>('/wishlist', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  },
-
-  addToWishlist: async (token: string, productId: number): Promise<{ message: string; wishlist_item: WishlistItem }> => {
-    return await apiCall<{ message: string; wishlist_item: WishlistItem }>('/wishlist/add', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ product_id: productId }),
-    });
-  },
-
-  removeFromWishlist: async (token: string, productId: number): Promise<{ message: string }> => {
-    return await apiCall<{ message: string }>(`/wishlist/${productId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  },
-
-  clearWishlist: async (token: string): Promise<{ message: string }> => {
-    return await apiCall<{ message: string }>('/wishlist/clear', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  },
-};
-
 // Seller API
 export interface SellerDashboard {
   analytics: {
@@ -1183,7 +1134,6 @@ export default {
   orderApi,
   paymentApi,
   refundApi,
-  wishlistApi,
   sellerApi,
   goldPriceApi,
   uploadApi,

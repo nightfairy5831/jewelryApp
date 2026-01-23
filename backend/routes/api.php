@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\SellerController;
 use App\Http\Controllers\Api\SellerSettingsController;
 use App\Http\Controllers\Api\UploadController;
@@ -121,14 +120,6 @@ Route::middleware('auth:api')->group(function () {
     Route::prefix('refunds')->group(function () {
         Route::get('/', [RefundController::class, 'buyerIndex']);
         Route::post('/', [RefundController::class, 'store']);
-    });
-
-    // Wishlist routes
-    Route::prefix('wishlist')->group(function () {
-        Route::get('/', [WishlistController::class, 'index']);
-        Route::post('/add', [WishlistController::class, 'add']);
-        Route::delete('/{productId}', [WishlistController::class, 'remove']);
-        Route::post('/clear', [WishlistController::class, 'clear']);
     });
 
     // Address routes
