@@ -13,19 +13,11 @@ return new class extends Migration
     {
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->text('content');
-            $table->json('favorite')->nullable(); // Array of user emails
-            $table->json('good')->nullable(); // Array of user emails
-            $table->json('bad')->nullable(); // Array of user emails
-            $table->timestamps();
-        });
-
-        Schema::create('comments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('message_id')->constrained()->onDelete('cascade');
-            $table->text('content');
+            $table->foreignId('from_user_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('to_user_id')->constrained('users')->onDelete('cascade');
+            $table->text('question');
+            $table->text('answer')->nullable();
+            $table->timestamp('answered_at')->nullable();
             $table->timestamps();
         });
     }
@@ -35,7 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('comments');
         Schema::dropIfExists('messages');
     }
 };

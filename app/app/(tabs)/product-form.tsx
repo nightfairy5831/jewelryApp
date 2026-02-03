@@ -31,6 +31,11 @@ const SUBCATEGORIES: { [key: string]: string[] } = {
 
 const FILLING_OPTIONS = ['Solid', 'Hollow', 'Defense'];
 const GEMSTONE_OPTIONS = ['Synthetic', 'Natural', 'Without Stones'];
+const MATERIAL_OPTIONS = [
+  { label: 'Ouro 18K', value: 'Ouro 18K', karat: '18k' },
+  { label: 'Ouro 10K', value: 'Ouro 10K', karat: '10k' },
+  { label: 'Outros', value: 'Outros', karat: null },
+];
 
 export default function ProductFormScreen() {
   const router = useRouter();
@@ -46,6 +51,7 @@ export default function ProductFormScreen() {
     subcategory: 'Chains',
     filling: '',
     is_gemstone: '',
+    material: 'Ouro 18K',
     base_price: '',
     gold_weight_grams: '',
     gold_karat: '18k',
@@ -63,6 +69,7 @@ export default function ProductFormScreen() {
   const [subcategoryDropdownOpen, setSubcategoryDropdownOpen] = useState(false);
   const [fillingDropdownOpen, setFillingDropdownOpen] = useState(false);
   const [gemstoneDropdownOpen, setGemstoneDropdownOpen] = useState(false);
+  const [materialDropdownOpen, setMaterialDropdownOpen] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,6 +95,7 @@ export default function ProductFormScreen() {
           subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0],
           filling: product.filling || '',
           is_gemstone: product.is_gemstone || '',
+          material: product.material || 'Ouro 18K',
           base_price: product.base_price?.toString() || '',
           gold_weight_grams: product.gold_weight_grams?.toString() || '',
           gold_karat: product.gold_karat || '18k',
@@ -221,10 +229,20 @@ export default function ProductFormScreen() {
       Alert.alert('Erro', 'Preço base deve ser maior que zero');
       return false;
     }
-    if (!formData.gold_weight_grams || parseFloat(formData.gold_weight_grams) <= 0) {
-      Alert.alert('Erro', 'Peso do ouro deve ser maior que zero');
-      return false;
+
+    // Only validate gold fields for gold products
+    const isGoldProduct = formData.material === 'Ouro 18K' || formData.material === 'Ouro 10K';
+    if (isGoldProduct) {
+      if (!formData.gold_weight_grams || parseFloat(formData.gold_weight_grams) <= 0) {
+        Alert.alert('Erro', 'Peso do ouro é obrigatório para produtos de ouro');
+        return false;
+      }
+      if (!formData.gold_karat) {
+        Alert.alert('Erro', 'Quilate do ouro é obrigatório para produtos de ouro');
+        return false;
+      }
     }
+
     if (!formData.stock_quantity || parseInt(formData.stock_quantity) < 0) {
       Alert.alert('Erro', 'Quantidade em estoque inválida');
       return false;
@@ -259,21 +277,28 @@ export default function ProductFormScreen() {
     setLoading(true);
 
     try {
-      const productData = {
+      const isGoldProduct = formData.material === 'Ouro 18K' || formData.material === 'Ouro 10K';
+
+      const productData: any = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         category: formData.category,
         subcategory: formData.subcategory || undefined,
         filling: formData.filling || undefined,
         is_gemstone: formData.is_gemstone || undefined,
+        material: formData.material,
         base_price: parseFloat(formData.base_price),
-        gold_weight_grams: parseFloat(formData.gold_weight_grams),
-        gold_karat: formData.gold_karat,
         stock_quantity: parseInt(formData.stock_quantity),
         images: JSON.stringify(images),
         videos: videoUrl ? JSON.stringify([videoUrl]) : undefined,
         model_3d_url: model3dUrl || undefined,
       };
+
+      // Only include gold fields for gold products
+      if (isGoldProduct) {
+        productData.gold_weight_grams = parseFloat(formData.gold_weight_grams);
+        productData.gold_karat = formData.gold_karat;
+      }
 
       if (isEditMode && productId) {
         const response = await productApi.updateProduct(authToken!, parseInt(productId), productData);
@@ -580,6 +605,66 @@ export default function ProductFormScreen() {
           </View>
         </View>
 
+        {/* Material */}
+        <View style={[styles.inputGroup, { zIndex: 997 }]}>
+          <Text style={styles.label}>
+            Material <Text style={styles.required}>*</Text>
+          </Text>
+          <View style={styles.selectContainer}>
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={() => setMaterialDropdownOpen(!materialDropdownOpen)}
+              disabled={loading}
+            >
+              <Text style={styles.selectText}>{formData.material}</Text>
+              <Ionicons
+                name={materialDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+            {materialDropdownOpen && (
+              <View style={styles.dropdownList}>
+                {MATERIAL_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      handleInputChange('material', option.value);
+                      if (option.karat) {
+                        handleInputChange('gold_karat', option.karat);
+                      }
+                      setMaterialDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownItemText}>{option.label}</Text>
+                    {formData.material === option.value && (
+                      <Ionicons name="checkmark" size={20} color="#2563eb" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Gold Weight - Only for gold products */}
+        {(formData.material === 'Ouro 18K' || formData.material === 'Ouro 10K') && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>
+              Peso do Ouro (gramas) <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 5.5"
+              value={formData.gold_weight_grams}
+              onChangeText={(value) => handleInputChange('gold_weight_grams', value)}
+              keyboardType="decimal-pad"
+              editable={!loading}
+            />
+          </View>
+        )}
+
         {/* Price */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>
@@ -593,50 +678,6 @@ export default function ProductFormScreen() {
             keyboardType="decimal-pad"
             editable={!loading}
           />
-        </View>
-
-        {/* Gold Weight */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>
-            Peso do Ouro (gramas) <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Ex: 5.5"
-            value={formData.gold_weight_grams}
-            onChangeText={(value) => handleInputChange('gold_weight_grams', value)}
-            keyboardType="decimal-pad"
-            editable={!loading}
-          />
-        </View>
-
-        {/* Gold Karat */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>
-            Quilate do Ouro <Text style={styles.required}>*</Text>
-          </Text>
-          <View style={styles.radioGroup}>
-            {['10k', '18k'].map((karat) => (
-              <TouchableOpacity
-                key={karat}
-                style={[
-                  styles.radioButton,
-                  formData.gold_karat === karat && styles.radioButtonActive,
-                ]}
-                onPress={() => handleInputChange('gold_karat', karat)}
-                disabled={loading}
-              >
-                <Text
-                  style={[
-                    styles.radioText,
-                    formData.gold_karat === karat && styles.radioTextActive,
-                  ]}
-                >
-                  {karat}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Stock Quantity */}

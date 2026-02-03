@@ -25,6 +25,59 @@ class ShippingService
     }
 
     /**
+     * Get a shipping cost quote based on destination postal code and items
+     */
+    public function getShippingQuote(string $postalCode, array $items): array
+    {
+        if (!$this->token) {
+            return $this->mockGetShippingQuote($postalCode, $items);
+        }
+
+        try {
+            $totalWeight = collect($items)->sum(function ($item) {
+                return ($item['weight'] ?? 0.1) * ($item['quantity'] ?? 1);
+            });
+            $totalWeight = max($totalWeight, 0.1);
+
+            $declaredValue = collect($items)->sum(function ($item) {
+                return ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+            });
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->token,
+                'Content-Type' => 'application/json',
+            ])->timeout(15)->post($this->baseUrl . '/api/cotacao/calcular', [
+                'idOperador' => $this->userId,
+                'idModalidade' => $this->defaultModality,
+                'cepDestino' => preg_replace('/\D/', '', $postalCode),
+                'peso' => $totalWeight,
+                'valorDeclarado' => $declaredValue,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'success' => true,
+                    'shipping_cost' => $data['valor'] ?? $data['vlFrete'] ?? 0,
+                    'estimated_days' => $data['prazo'] ?? $data['prazoEntrega'] ?? 7,
+                    'carrier' => 'onlog',
+                ];
+            }
+
+            Log::warning('Onlog shipping quote failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return $this->mockGetShippingQuote($postalCode, $items);
+
+        } catch (\Exception $e) {
+            Log::error('Onlog shipping quote error: ' . $e->getMessage());
+            return $this->mockGetShippingQuote($postalCode, $items);
+        }
+    }
+
+    /**
      * Create a shipment for an order
      */
     public function createShipment(Order $order, ?string $modality = null): array
@@ -140,6 +193,33 @@ class ShippingService
             'shipment_id' => $shipmentId,
             'tracking_number' => $trackingNumber,
             'label_url' => null,
+            'carrier' => 'onlog',
+        ];
+    }
+
+    /**
+     * Mock shipping quote for development/testing
+     */
+    private function mockGetShippingQuote(string $postalCode, array $items): array
+    {
+        $totalWeight = collect($items)->sum(function ($item) {
+            return ($item['weight'] ?? 0.1) * ($item['quantity'] ?? 1);
+        });
+
+        $declaredValue = collect($items)->sum(function ($item) {
+            return ($item['price'] ?? 0) * ($item['quantity'] ?? 1);
+        });
+
+        // Simple mock calculation: base R$5 + R$2 per 100g + 1% of declared value
+        $baseCost = 5.00;
+        $weightCost = ceil($totalWeight / 0.1) * 2.00;
+        $valueCost = $declaredValue * 0.01;
+        $shippingCost = round($baseCost + $weightCost + $valueCost, 2);
+
+        return [
+            'success' => true,
+            'shipping_cost' => $shippingCost,
+            'estimated_days' => rand(3, 7),
             'carrier' => 'onlog',
         ];
     }

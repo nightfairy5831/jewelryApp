@@ -35,14 +35,19 @@ class SellerController extends Controller
             ->where('status', 'rejected')
             ->count();
 
-        // Order statistics
-        $orderItems = OrderItem::where('seller_id', $user->id)->get();
+        // Order statistics - only count paid orders (exclude 'pending' and 'cancelled')
+        $orderItems = OrderItem::where('seller_id', $user->id)
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'accepted', 'shipped', 'delivered'])
+            ->select('order_items.*')
+            ->get();
         $totalOrders = $orderItems->pluck('order_id')->unique()->count();
         $totalRevenue = $orderItems->sum('total_price');
 
-        // Order status breakdown
+        // Order status breakdown - only paid orders
         $ordersByStatus = OrderItem::where('seller_id', $user->id)
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'accepted', 'shipped', 'delivered'])
             ->select('orders.status', DB::raw('count(distinct orders.id) as count'))
             ->groupBy('orders.status')
             ->get()
@@ -54,13 +59,15 @@ class SellerController extends Controller
             ->take(5)
             ->get();
 
-        // Recent orders (last 5)
+        // Recent orders (last 5) - only paid orders
         $recentOrderIds = OrderItem::where('seller_id', $user->id)
-            ->select('order_id', DB::raw('MAX(created_at) as max_created_at'))
-            ->groupBy('order_id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'accepted', 'shipped', 'delivered'])
+            ->select('order_items.order_id', DB::raw('MAX(order_items.created_at) as max_created_at'))
+            ->groupBy('order_items.order_id')
             ->orderBy('max_created_at', 'desc')
             ->take(5)
-            ->pluck('order_id');
+            ->pluck('order_items.order_id');
 
         $recentOrders = Order::whereIn('id', $recentOrderIds)
             ->with(['items' => function ($query) use ($user) {
@@ -144,7 +151,9 @@ class SellerController extends Controller
             ->pluck('order_id');
 
         // Load orders with only seller's items
+        // Only show paid orders (exclude 'pending' and 'cancelled')
         $query = Order::whereIn('id', $orderIds)
+            ->whereIn('status', ['confirmed', 'accepted', 'shipped', 'delivered'])
             ->with([
                 'buyer:id,name,email',
                 'items' => function ($query) use ($user) {
@@ -153,7 +162,7 @@ class SellerController extends Controller
                 'payment:id,order_id,payment_method,status,amount',
             ]);
 
-        // Filter by status
+        // Filter by specific status (still within paid orders only)
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
@@ -179,18 +188,21 @@ class SellerController extends Controller
             return response()->json(['error' => 'Unauthorized. Seller access required.'], 403);
         }
 
-        // Sales by product (top 10)
+        // Sales by product (top 10) - only from paid orders
         $salesByProduct = OrderItem::where('seller_id', $user->id)
-            ->select('product_id', DB::raw('SUM(quantity) as total_quantity'), DB::raw('SUM(total_price) as total_revenue'))
-            ->groupBy('product_id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'accepted', 'shipped', 'delivered'])
+            ->select('order_items.product_id', DB::raw('SUM(order_items.quantity) as total_quantity'), DB::raw('SUM(order_items.total_price) as total_revenue'))
+            ->groupBy('order_items.product_id')
             ->orderBy('total_revenue', 'desc')
             ->take(10)
             ->with('product:id,name,images')
             ->get();
 
-        // Revenue by month (last 6 months)
+        // Revenue by month (last 6 months) - only from paid orders
         $revenueByMonth = OrderItem::where('seller_id', $user->id)
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', ['confirmed', 'accepted', 'shipped', 'delivered'])
             ->where('orders.created_at', '>=', now()->subMonths(6))
             ->select(
                 DB::raw('YEAR(orders.created_at) as year'),

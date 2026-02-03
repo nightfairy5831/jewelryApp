@@ -15,10 +15,15 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->boolean('mercadopago_connected')->default(false);
+            $table->string('mercadopago_user_id')->nullable();
+            $table->string('mercadopago_access_token')->nullable();
+            $table->string('mercadopago_refresh_token')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('phone', 20)->nullable();
             $table->enum('role', ['buyer', 'seller', 'admin', 'super_admin'])->default('buyer');
+            $table->enum('seller_status', ['pending', 'approved', 'rejected', 'inactive'])->nullable()->comment('Status for seller accounts only. NULL for buyers.');
             $table->boolean('seller_approved')->default(false);
             $table->timestamp('seller_requested_at')->nullable();
             $table->foreignId('seller_approved_by')->nullable()->constrained('users')->nullOnDelete();

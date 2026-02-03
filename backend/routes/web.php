@@ -13,8 +13,6 @@ Route::get('/', function () {
 
         if ($user->isSuperAdmin()) {
             return redirect()->route('admin.dashboard');
-        } elseif ($user->role === 'seller') {
-            return redirect()->route('seller.dashboard');
         } elseif ($user->role === 'buyer') {
             return redirect()->route('buyer.dashboard');
         }
@@ -59,18 +57,6 @@ Route::prefix('admin')->middleware(['auth', 'super_admin'])->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings');
     Route::post('/settings/test-gold-api', [SettingsController::class, 'testGoldApi'])->name('admin.settings.test-gold-api');
     Route::post('/settings/test-conversion-api', [SettingsController::class, 'testConversionApi'])->name('admin.settings.test-conversion-api');
-});
-
-Route::prefix('seller')->middleware(['auth', 'seller'])->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\Seller\DashboardController::class, 'index'])->name('seller.dashboard');
-
-    // Product management routes
-    Route::get('/products', [\App\Http\Controllers\Seller\ProductController::class, 'index'])->name('seller.products.index');
-    Route::get('/products/create', [\App\Http\Controllers\Seller\ProductController::class, 'create'])->name('seller.products.create');
-    Route::post('/products', [\App\Http\Controllers\Seller\ProductController::class, 'store'])->name('seller.products.store');
-    Route::get('/products/{id}/edit', [\App\Http\Controllers\Seller\ProductController::class, 'edit'])->name('seller.products.edit');
-    Route::put('/products/{id}', [\App\Http\Controllers\Seller\ProductController::class, 'update'])->name('seller.products.update');
-    Route::delete('/products/{id}', [\App\Http\Controllers\Seller\ProductController::class, 'destroy'])->name('seller.products.destroy');
 });
 
 Route::prefix('buyer')->middleware(['auth'])->group(function () {

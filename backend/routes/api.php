@@ -72,6 +72,9 @@ Route::middleware('auth:api')->group(function () {
         Route::post('/clear', [CartController::class, 'clear']);
     });
 
+    // Shipping estimate
+    Route::post('/shipping/estimate', [ShippingController::class, 'estimate']);
+
     // Order routes (Buyer)
     Route::prefix('orders')->group(function () {
         Route::get('/', [OrderController::class, 'index']);

@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../store/useAppStore';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { orderApi, type ShippingAddress } from '../services/api';
+import { orderApi, shippingApi, type ShippingAddress } from '../services/api';
 
 export default function CheckoutScreen() {
   const { cart, authToken, fetchCart, fetchOrders } = useAppStore();
@@ -29,15 +29,6 @@ export default function CheckoutScreen() {
     return cart.cart.items.filter(item => selectedItemIds.includes(item.id));
   }, [cart, selectedItemIds]);
 
-  // Calculate totals for selected items only
-  const selectedTotals = useMemo(() => {
-    const subtotal = selectedCartItems.reduce((sum, item) => sum + (Number(item.price_at_time_of_add) * item.quantity), 0);
-    const shipping = selectedCartItems.length > 0 ? (cart?.shipping || 0) : 0;
-    const tax = selectedCartItems.length > 0 ? (subtotal * 0.1) : 0;
-    const total = subtotal + shipping + tax;
-    return { subtotal, shipping, tax, total };
-  }, [selectedCartItems, cart]);
-
   const [address, setAddress] = useState<ShippingAddress>({
     street: '',
     city: '',
@@ -46,14 +37,67 @@ export default function CheckoutScreen() {
     country: 'Brazil',
   });
 
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [shippingDays, setShippingDays] = useState<number | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const shippingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Calculate totals for selected items only
+  const selectedTotals = useMemo(() => {
+    const subtotal = selectedCartItems.reduce((sum, item) => sum + (Number(item.price_at_time_of_add) * item.quantity), 0);
+    const shipping = shippingCost ?? 0;
+    const tax = selectedCartItems.length > 0 ? (subtotal * 0.1) : 0;
+    const total = subtotal + shipping + tax;
+    return { subtotal, shipping, tax, total };
+  }, [selectedCartItems, shippingCost]);
+
+  const fetchShippingEstimate = useCallback(async (postalCode: string) => {
+    if (!authToken || !postalCode || postalCode.replace(/\D/g, '').length < 8) {
+      setShippingCost(null);
+      setShippingDays(null);
+      return;
+    }
+
+    setShippingLoading(true);
+    try {
+      const result = await shippingApi.getEstimate(authToken, postalCode, selectedItemIds);
+      if (result.success) {
+        setShippingCost(result.shipping_cost);
+        setShippingDays(result.estimated_days);
+      } else {
+        setShippingCost(null);
+        setShippingDays(null);
+      }
+    } catch {
+      setShippingCost(null);
+      setShippingDays(null);
+    } finally {
+      setShippingLoading(false);
+    }
+  }, [authToken, selectedItemIds]);
+
+  const handlePostalCodeChange = useCallback((text: string) => {
+    setAddress(prev => ({ ...prev, postal_code: text }));
+    if (shippingTimerRef.current) clearTimeout(shippingTimerRef.current);
+    shippingTimerRef.current = setTimeout(() => fetchShippingEstimate(text), 800);
+  }, [fetchShippingEstimate]);
+
+  useEffect(() => {
+    return () => {
+      if (shippingTimerRef.current) clearTimeout(shippingTimerRef.current);
+    };
+  }, []);
+
   const fillMockData = () => {
-    setAddress({
+    const mockAddress = {
       street: 'Rua das Flores, 123',
       city: 'São Paulo',
       state: 'SP',
       postal_code: '01310-100',
       country: 'Brazil',
-    });
+    };
+    setAddress(mockAddress);
+    fetchShippingEstimate(mockAddress.postal_code);
   };
 
   // Require authentication for checkout
@@ -212,7 +256,8 @@ export default function CheckoutScreen() {
               style={styles.input}
               placeholder="Postal Code"
               value={address.postal_code}
-              onChangeText={(text) => setAddress({ ...address, postal_code: text })}
+              onChangeText={handlePostalCodeChange}
+              keyboardType="numeric"
             />
           </View>
         </View>
@@ -255,7 +300,18 @@ export default function CheckoutScreen() {
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Frete:</Text>
-              <Text style={styles.totalValue}>R$ {selectedTotals.shipping.toFixed(2)}</Text>
+              {shippingLoading ? (
+                <ActivityIndicator size="small" color="#D4AF37" />
+              ) : shippingCost !== null ? (
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.totalValue}>R$ {shippingCost.toFixed(2)}</Text>
+                  {shippingDays && (
+                    <Text style={{ fontSize: 12, color: '#888' }}>{shippingDays} dias úteis</Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={[styles.totalValue, { color: '#999' }]}>Informe o CEP</Text>
+              )}
             </View>
             <View style={[styles.totalRow, styles.grandTotalRow]}>
               <Text style={styles.grandTotalLabel}>Total Estimado:</Text>
