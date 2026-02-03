@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import * as ExpoLinking from 'expo-linking';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi, messageApi, refundApi, type SellerDashboard } from '../../services/api';
@@ -31,6 +30,7 @@ export default function SellerDashboardScreen() {
   const [mpLoading, setMpLoading] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [refundCount, setRefundCount] = useState(0);
+  const [pollingForMp, setPollingForMp] = useState(false);
 
   // Check if seller can perform actions (must be approved and have MP connected)
   const isApproved = currentUser?.seller_status === 'approved';
@@ -67,52 +67,50 @@ export default function SellerDashboardScreen() {
   }, [authToken]);
 
   useEffect(() => {
-    // Only fetch dashboard if user is authenticated AND is a seller
     if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
       fetchDashboard();
       fetchMpStatus();
       fetchMessageCount();
       fetchRefundCount();
     } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
-      // Stop loading if not authenticated or not a seller (let _layout.tsx handle redirect)
       setLoading(false);
     }
   }, [isAuthenticated, authToken, currentUser]);
 
-  // Handle deep links for Mercado Pago OAuth callback
+  // Poll for MP connection status after OAuth
   useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
-      const url = event.url;
-      if (url.includes('mercadopago-success')) {
-        Alert.alert(
-          'Sucesso!',
-          'Sua conta do Mercado Pago foi conectada com sucesso.',
-          [{ text: 'OK' }]
-        );
-        fetchMpStatus();
-      } else if (url.includes('mercadopago-error')) {
-        Alert.alert(
-          'Erro',
-          'Houve um problema ao conectar sua conta do Mercado Pago. Tente novamente.',
-          [{ text: 'OK' }]
-        );
+    if (!pollingForMp || !authToken) return;
+
+    let pollCount = 0;
+    const maxPolls = 30; 
+    const pollInterval = 1000; // Poll every second
+
+    const interval = setInterval(async () => {
+      pollCount++;
+
+      try {
+        const status = await sellerApi.getMercadoPagoStatus(authToken);
+
+        if (status.connected && !mpStatus.connected) {
+          setMpStatus(status);
+          setPollingForMp(false);
+          Alert.alert(
+            'Sucesso!',
+            'Sua conta do Mercado Pago foi conectada com sucesso.',
+            [{ text: 'OK' }]
+          );
+          clearInterval(interval);
+        } else if (pollCount >= maxPolls) {
+          setPollingForMp(false);
+          clearInterval(interval);
+        }
+      } catch (err) {
+        console.error('Error polling MP status:', err);
       }
-    };
+    }, pollInterval);
 
-    // Check if app was opened with a deep link
-    ExpoLinking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
-
-    // Listen for incoming deep links
-    const subscription = ExpoLinking.addEventListener('url', handleDeepLink);
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [pollingForMp, authToken, mpStatus.connected]);
 
   const fetchDashboard = async () => {
     if (!authToken) return;
@@ -126,8 +124,8 @@ export default function SellerDashboardScreen() {
 
       // If session expired, clear all user data and redirect to index
       if (err.message?.includes('Session expired')) {
-        await logout(); // Clear all user info
-        router.replace('/(tabs)'); // Show index page
+        await logout();
+        router.replace('/(tabs)');
         return;
       }
 
@@ -147,6 +145,15 @@ export default function SellerDashboardScreen() {
       if (oauth_url) {
         // Open OAuth URL for both sandbox and production modes
         await Linking.openURL(oauth_url);
+
+        // Start polling for connection status
+        setPollingForMp(true);
+
+        Alert.alert(
+          'Autenticação Iniciada',
+          'Complete o processo de autenticação no navegador. Quando terminar, feche a janela do navegador e volte ao aplicativo.',
+          [{ text: 'OK' }]
+        );
       } else {
         Alert.alert('Erro', 'URL de autenticação não disponível');
       }

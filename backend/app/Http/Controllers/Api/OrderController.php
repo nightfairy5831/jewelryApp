@@ -222,9 +222,12 @@ class OrderController extends Controller
             return response()->json(['error' => 'Only sellers can access this endpoint'], 403);
         }
 
+        // Only show orders that have been paid (status is confirmed, accepted, shipped, or delivered)
+        // Exclude 'pending' (unpaid) and 'cancelled' orders
         $orders = Order::whereHas('items', function ($query) use ($user) {
             $query->where('seller_id', $user->id);
         })
+        ->whereIn('status', ['confirmed', 'accepted', 'shipped', 'delivered'])
         ->with(['items' => function ($query) use ($user) {
             $query->where('seller_id', $user->id)->with(['product', 'ringCustomization']);
         }, 'buyer', 'payment'])

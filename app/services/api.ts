@@ -674,6 +674,34 @@ export const orderApi = {
   },
 };
 
+// Shipping API
+export interface ShippingEstimate {
+  success: boolean;
+  shipping_cost: number;
+  estimated_days: number;
+  carrier: string;
+  error?: string;
+}
+
+export const shippingApi = {
+  getEstimate: async (
+    token: string,
+    postalCode: string,
+    cartItemIds?: number[]
+  ): Promise<ShippingEstimate> => {
+    return await apiCall<ShippingEstimate>('/shipping/estimate', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        postal_code: postalCode,
+        cart_item_ids: cartItemIds,
+      }),
+    });
+  },
+};
+
 // Payment API - Destination Charges (per-seller payments)
 export interface CardDetails {
   card_number: string;

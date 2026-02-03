@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Cart;
 use App\Services\ShippingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class ShippingController extends Controller
 {
@@ -15,6 +17,49 @@ class ShippingController extends Controller
     public function __construct(ShippingService $shippingService)
     {
         $this->shippingService = $shippingService;
+    }
+
+    /**
+     * Get shipping cost estimate for a postal code and cart items
+     */
+    public function estimate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'postal_code' => 'required|string',
+            'cart_item_ids' => 'nullable|array',
+            'cart_item_ids.*' => 'integer',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $user = Auth::user();
+        $cart = Cart::where('user_id', $user->id)->with('items.product')->first();
+
+        if (!$cart || $cart->items->isEmpty()) {
+            return response()->json(['error' => 'Cart is empty'], 400);
+        }
+
+        $cartItemIds = $request->cart_item_ids;
+        $items = $cart->items;
+
+        if ($cartItemIds && count($cartItemIds) > 0) {
+            $items = $items->filter(fn($item) => in_array($item->id, $cartItemIds));
+        }
+
+        $itemsData = $items->map(fn($item) => [
+            'weight' => $item->product->weight ?? 0.1,
+            'price' => $item->price_at_time_of_add,
+            'quantity' => $item->quantity,
+        ])->values()->toArray();
+
+        $result = $this->shippingService->getShippingQuote(
+            $request->postal_code,
+            $itemsData
+        );
+
+        return response()->json($result);
     }
 
     /**

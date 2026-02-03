@@ -30,6 +30,7 @@ class SellerSettingsController extends Controller
             'platform_id' => 'mp',
             'redirect_uri' => config('services.mercadopago.redirect_uri'),
             'state' => $user->id,
+            'prompt' => 'login', // Force user to login even if session exists
         ]);
 
         return response()->json([
@@ -90,12 +91,12 @@ class SellerSettingsController extends Controller
                 'mode' => $mode,
             ]);
 
-            // Redirect to app with success
-            return redirect('perfectjewel://mercadopago-success');
+            // Show HTML page that will redirect to app
+            return view('mercadopago-success');
 
         } catch (\Exception $e) {
             Log::error('MercadoPago OAuth error', ['error' => $e->getMessage()]);
-            return redirect('perfectjewel://mercadopago-error');
+            return view('mercadopago-error');
         }
     }
 
@@ -110,12 +111,19 @@ class SellerSettingsController extends Controller
             return response()->json(['error' => 'Only sellers can manage Mercado Pago'], 403);
         }
 
-        $user->update([
+        $updateData = [
             'mercadopago_connected' => false,
             'mercadopago_user_id' => null,
             'mercadopago_access_token' => null,
             'mercadopago_refresh_token' => null,
-        ]);
+        ];
+
+        // If seller was approved, revert to pending since MP connection is required for approval
+        if ($user->seller_status === 'approved') {
+            $updateData['seller_status'] = 'pending';
+        }
+
+        $user->update($updateData);
 
         return response()->json(['message' => 'Mercado Pago disconnected']);
     }
