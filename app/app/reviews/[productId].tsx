@@ -7,6 +7,7 @@ import { API_CONFIG } from '../../config/api';
 interface Review {
   id: number;
   buyer_name: string;
+  buyer_avatar: string | null;
   rating: number;
   description: string | null;
   image: string | null;
@@ -65,9 +66,20 @@ export default function ReviewsPage() {
         />
       )}
 
-      {/* Buyer Name and Rating */}
+      {/* Buyer Info and Rating */}
       <View style={styles.reviewHeader}>
-        <Text style={styles.buyerName}>{item.buyer_name}</Text>
+        <View style={styles.buyerInfo}>
+          {item.buyer_avatar ? (
+            <RNImage source={{ uri: item.buyer_avatar }} style={styles.buyerAvatar} />
+          ) : (
+            <View style={styles.buyerAvatarFallback}>
+              <Text style={styles.buyerAvatarText}>
+                {item.buyer_name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.buyerName}>{item.buyer_name}</Text>
+        </View>
         <View style={styles.ratingRow}>
           {renderStars(item.rating)}
           <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
@@ -175,6 +187,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
+  },
+  buyerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  buyerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  buyerAvatarFallback: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3b82f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buyerAvatarText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   buyerName: {
     fontSize: 16,

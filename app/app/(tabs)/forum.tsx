@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -156,11 +157,15 @@ export default function Forum() {
             <View key={message.id} style={styles.qaCard}>
               {/* Question Maker Info */}
               <View style={styles.qaHeader}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {message.from_user_name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {message.from_user_avatar ? (
+                  <Image source={{ uri: message.from_user_avatar }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {message.from_user_name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.qaHeaderInfo}>
                   <Text style={styles.userName}>{message.from_user_name}</Text>
                   <Text style={styles.timestamp}>
@@ -349,6 +354,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginRight: 10,
   },
   sellerAvatar: {
