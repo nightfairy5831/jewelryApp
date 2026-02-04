@@ -57,11 +57,10 @@ export default function CartScreen() {
 
     const selectedCartItems = cart.cart.items.filter(item => selectedItems.has(item.id));
     const subtotal = selectedCartItems.reduce((sum, item) => sum + (Number(item.price_at_time_of_add) * item.quantity), 0);
-    const shipping = selectedCartItems.length > 0 ? cart.shipping : 0;
     const tax = selectedCartItems.length > 0 ? (subtotal * 0.1) : 0; // 10% tax approximation
-    const total = subtotal + shipping + tax;
+    const total = subtotal + tax;
 
-    return { subtotal, shipping, tax, total, count: selectedCartItems.length };
+    return { subtotal, tax, total, count: selectedCartItems.length };
   }, [cart, selectedItems]);
 
   const isAllSelected = cart?.cart?.items && cart.cart.items.length > 0 &&
@@ -209,10 +208,6 @@ export default function CartScreen() {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal:</Text>
             <Text style={styles.summaryValue}>R$ {selectedTotals.subtotal.toFixed(2).replace('.', ',')}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Frete:</Text>
-            <Text style={styles.summaryValue}>R$ {selectedTotals.shipping.toFixed(2).replace('.', ',')}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Taxas:</Text>

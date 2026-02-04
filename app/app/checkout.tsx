@@ -177,8 +177,8 @@ export default function CheckoutScreen() {
       // Create order from selected cart items only
       const response = await orderApi.createOrder(authToken, {
         shipping_address: address,
-        payment_method: 'credit_card',
         cart_item_ids: selectedItemIds,
+        shipping_amount: shippingCost ?? 0,
       });
 
       // Navigate to payment screen immediately

@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Image, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -6,7 +6,9 @@ import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { router } from 'expo-router';
 import type { Order } from '../../services/api';
+import { uploadApi } from '../../services/api';
 import OrderCard from '../../components/order/OrderCard';
+import * as ImagePicker from 'expo-image-picker';
 
 const userIcon = require('../../assets/user.png');
 
@@ -21,11 +23,16 @@ interface Review {
 }
 
 export default function PerfilScreen() {
-  const { logout, authToken, orders, fetchOrders } = useAppStore();
+  const { logout, authToken, orders, fetchOrders, updateProfile } = useAppStore();
   const { user: currentUser } = useCurrentUser();
   const [activeTab, setActiveTab] = useState<'compras' | 'avaliacoes'>('compras');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     if (authToken && activeTab === 'compras') {
@@ -39,6 +46,62 @@ export default function PerfilScreen() {
       router.replace('/auth/login');
     }
   }, [currentUser]);
+
+  const handleEditProfile = () => {
+    setEditName(currentUser.name || '');
+    setEditPhone(currentUser.phone || '');
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Erro', 'O nome não pode ficar vazio');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await updateProfile({ name: editName.trim(), phone: editPhone.trim() || undefined });
+      setEditingProfile(false);
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso');
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Falha ao atualizar perfil');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleChangeAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingAvatar(true);
+    try {
+      const file = {
+        uri: result.assets[0].uri,
+        type: 'image/jpeg',
+        name: `avatar-${Date.now()}.jpg`,
+      };
+      const uploadResponse = await uploadApi.uploadAvatar(file);
+      await updateProfile({ avatar_url: uploadResponse.url });
+      Alert.alert('Sucesso', 'Foto atualizada com sucesso');
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Falha ao atualizar foto');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -133,9 +196,19 @@ export default function PerfilScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image source={userIcon} style={styles.avatarImage} />
-          </View>
+          <TouchableOpacity style={styles.avatarContainer} onPress={handleChangeAvatar} disabled={uploadingAvatar}>
+            <Image
+              source={currentUser.avatar ? { uri: currentUser.avatar } : userIcon}
+              style={styles.avatarImage}
+            />
+            <View style={styles.avatarEditBadge}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={14} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={styles.userName}>{currentUser.name}</Text>
             <Text style={styles.userCreatedDate}>
@@ -146,6 +219,57 @@ export default function PerfilScreen() {
             <Ionicons name="ellipsis-vertical" size={24} color="#111827" />
           </TouchableOpacity>
         </View>
+
+        {/* Edit Profile Button / Form */}
+        {editingProfile ? (
+          <View style={styles.editProfileSection}>
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editLabel}>Nome</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Seu nome"
+                placeholderTextColor="#B3B3B3"
+              />
+            </View>
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editLabel}>Telefone</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="Seu telefone"
+                placeholderTextColor="#B3B3B3"
+                keyboardType="phone-pad"
+              />
+            </View>
+            <View style={styles.editButtonsRow}>
+              <TouchableOpacity
+                style={styles.editCancelButton}
+                onPress={() => setEditingProfile(false)}
+              >
+                <Text style={styles.editCancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editSaveButton, savingProfile && { opacity: 0.6 }]}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.editSaveButtonText}>Salvar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
+            <Ionicons name="create-outline" size={18} color="#111827" />
+            <Text style={styles.editProfileButtonText}>Editar perfil</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.tabsContainer}>
           <TouchableOpacity
@@ -205,12 +329,94 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   avatarImage: { width: 80, height: 80 },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   profileInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   userName: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 2 },
   userCreatedDate: { fontSize: 14, color: '#6b7280' },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  editProfileButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  editProfileSection: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  editInputGroup: {
+    marginBottom: 12,
+  },
+  editLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  editInput: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#D9D9D9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    fontSize: 15,
+    color: '#111827',
+  },
+  editButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  editCancelButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  editCancelButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  editSaveButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#000',
+    alignItems: 'center',
+  },
+  editSaveButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#fff',
+  },
   tabsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',

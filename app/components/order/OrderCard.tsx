@@ -8,14 +8,20 @@ import {
   TextInput,
   ActivityIndicator,
   Linking,
-  Modal,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import type { Order, OrderItem } from '../../services/api';
+import type { Order, Payment } from '../../services/api';
 
 type OrderStatus = Order['status'];
+
+const getPaymentStatus = (payments?: Payment[]): 'none' | 'failed' | 'paid' => {
+  if (!payments || payments.length === 0) return 'none';
+  if (payments.some(p => p.status === 'failed')) return 'failed';
+  if (payments.every(p => p.status === 'completed')) return 'paid';
+  return 'none';
+};
 
 interface OrderCardProps {
   order: Order;
@@ -26,6 +32,8 @@ interface OrderCardProps {
   onViewAddress?: (order: Order) => void;
   onViewReason?: (order: Order) => void;
   onConfirmDelivery?: (order: Order) => void;
+  onCompletePayment?: (order: Order) => void;
+  onCancelOrder?: (order: Order) => void;
   isLoading?: boolean;
 }
 
@@ -94,15 +102,17 @@ export default function OrderCard({
   onViewAddress,
   onViewReason,
   onConfirmDelivery,
+  onCompletePayment,
+  onCancelOrder,
   isLoading,
 }: OrderCardProps) {
   const [trackingInput, setTrackingInput] = useState('');
-  const [showTrackingInput, setShowTrackingInput] = useState(false);
 
   const status = STATUS_CONFIG[order.status];
   const statusLabel = viewType === 'seller' ? status.sellerLabel : status.buyerLabel;
   const item = order.items?.[0];
   const product = item?.product;
+  const paymentResult = order.status === 'pending' ? getPaymentStatus(order.payments) : null;
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('pt-BR');
@@ -134,7 +144,6 @@ export default function OrderCard({
     if (trackingInput.trim() && onShip) {
       onShip(order, trackingInput.trim());
       setTrackingInput('');
-      setShowTrackingInput(false);
     }
   };
 
@@ -181,6 +190,43 @@ export default function OrderCard({
         </View>
         <Text style={styles.dateText}>Compra feita dia {formatDate(order.created_at)}</Text>
       </View>
+
+      {/* Payment Status (for pending orders) */}
+      {order.status === 'pending' && (
+        <View style={styles.paymentStatusContainer}>
+          {paymentResult === 'failed' ? (
+            <View style={styles.paymentStatusRow}>
+              <Ionicons name="close-circle" size={16} color="#dc2626" />
+              <Text style={[styles.paymentStatusLabel, { color: '#dc2626' }]}>Pagamento falhou</Text>
+            </View>
+          ) : (
+            <View style={styles.paymentStatusRow}>
+              <Ionicons name="time-outline" size={16} color="#6b7280" />
+              <Text style={[styles.paymentStatusLabel, { color: '#6b7280' }]}>Aguardando pagamento</Text>
+            </View>
+          )}
+          {viewType === 'buyer' && (
+            <View style={styles.paymentActions}>
+              {onCompletePayment && (
+                <TouchableOpacity
+                  style={styles.payNowButton}
+                  onPress={() => onCompletePayment(order)}
+                >
+                  <Text style={styles.payNowText}>Pagar agora</Text>
+                </TouchableOpacity>
+              )}
+              {onCancelOrder && (
+                <TouchableOpacity
+                  style={styles.cancelOrderButton}
+                  onPress={() => onCancelOrder(order)}
+                >
+                  <Text style={styles.cancelOrderText}>Cancelar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Product Info */}
       <View style={styles.productRow}>
@@ -594,5 +640,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: '#111827',
+  },
+  paymentStatusContainer: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+  paymentStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paymentStatusLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  paymentActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  payNowButton: {
+    flex: 1,
+    backgroundColor: '#111827',
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  payNowText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  cancelOrderButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  cancelOrderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
   },
 });

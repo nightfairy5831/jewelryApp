@@ -38,6 +38,35 @@ export default function OrdersScreen() {
     setReasonModalVisible(true);
   };
 
+  const handleCompletePayment = (order: Order) => {
+    router.push(`/payment/${order.id}`);
+  };
+
+  const handleCancelOrder = (order: Order) => {
+    if (!authToken) return;
+
+    Alert.alert(
+      'Cancelar Pedido',
+      'Tem certeza que deseja cancelar este pedido?',
+      [
+        { text: 'Não', style: 'cancel' },
+        {
+          text: 'Sim, cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await orderApi.cancelOrder(authToken, order.id);
+              Alert.alert('Pedido cancelado', 'Seu pedido foi cancelado com sucesso.');
+              fetchOrders();
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao cancelar pedido');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleConfirmDelivery = async (order: Order) => {
     if (!authToken) return;
 
@@ -120,6 +149,8 @@ export default function OrdersScreen() {
             onViewAddress={handleViewAddress}
             onViewReason={handleViewReason}
             onConfirmDelivery={handleConfirmDelivery}
+            onCompletePayment={handleCompletePayment}
+            onCancelOrder={handleCancelOrder}
             isLoading={confirmingDelivery === order.id}
           />
         ))}

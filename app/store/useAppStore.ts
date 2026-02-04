@@ -42,6 +42,7 @@ interface AppState {
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setAuthToken: (token: string) => Promise<void>;
+  updateProfile: (data: { name?: string; phone?: string; avatar_url?: string }) => Promise<void>;
 
   // Actions
   toggleFollow: (userId: string) => void;
@@ -176,6 +177,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAuthToken: async (token: string) => {
     await AsyncStorage.setItem('authToken', token);
     set({ authToken: token });
+  },
+
+  updateProfile: async (data) => {
+    const { authToken } = get();
+    if (!authToken) throw new Error('Not authenticated');
+    const response = await authApi.updateProfile(authToken, data);
+    await AsyncStorage.setItem('authToken', response.token);
+    set({ authToken: response.token });
   },
 
   // Load products from API - PRODUCTION DATA ONLY
