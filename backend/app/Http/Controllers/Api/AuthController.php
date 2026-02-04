@@ -146,6 +146,39 @@ class AuthController extends Controller
     }
 
     /**
+     * Update authenticated user's profile
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = auth()->user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'avatar_url' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $user->update($request->only(['name', 'phone', 'avatar_url']));
+
+        // Refresh token so JWT claims (avatar, name) stay current
+        $token = JWTAuth::fromUser($user->fresh());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'user' => $user->fresh(),
+            'token' => $token,
+        ]);
+    }
+
+    /**
      * Request to become a seller
      */
     public function requestSellerRole(Request $request)

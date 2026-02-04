@@ -160,6 +160,7 @@ class SellerController extends Controller
                     $query->where('seller_id', $user->id)->with('product:id,name,images');
                 },
                 'payment:id,order_id,payment_method,status,amount',
+                'payments:id,order_id,seller_id,payment_method,status,amount,paid_at',
             ]);
 
         // Filter by specific status (still within paid orders only)

@@ -15,7 +15,7 @@ class ReviewController extends Controller
     {
         $product = Product::findOrFail($productId);
 
-        $reviews = Review::with('buyer:id,name')
+        $reviews = Review::with('buyer:id,name,avatar_url')
             ->where('product_id', $productId)
             ->latest()
             ->get()
@@ -23,6 +23,7 @@ class ReviewController extends Controller
                 return [
                     'id' => $review->id,
                     'buyer_name' => $review->buyer->name,
+                    'buyer_avatar' => $review->buyer->avatar_url,
                     'rating' => (float) $review->rating,
                     'description' => $review->description,
                     'image' => $review->image,

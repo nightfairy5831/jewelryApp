@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\RefundController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\ShippingController;
+use App\Http\Controllers\Api\PasswordResetController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -23,6 +24,10 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Public avatar upload (for registration)
 Route::post('/upload/avatar', [UploadController::class, 'uploadAvatar']);
+
+// Password recovery (public)
+Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 
 // Public product routes
 Route::get('/products', [ProductController::class, 'index']);
@@ -46,6 +51,7 @@ Route::get('/messages', [MessageController::class, 'index']);
 // Protected routes (require JWT authentication)
 Route::middleware('auth:api')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::post('/request-seller-role', [AuthController::class, 'requestSellerRole']);

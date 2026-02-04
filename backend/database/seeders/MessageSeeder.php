@@ -11,8 +11,8 @@ class MessageSeeder extends Seeder
     public function run(): void
     {
         // Get users - buyers ask questions, sellers answer
-        $buyer1 = User::where('email', 'dollycookie0710@gmail.com')->first();
-        $buyer2 = User::where('email', 'tom8jerry0913@gmail.com')->first();
+        $buyer1 = User::where('email', 'jastinmax888@gmail.com')->first();
+        $buyer2 = User::where('email', 'nightfairy5831@gmail.com')->first();
         $seller = User::where('email', 'devnight0710@gmail.com')->first();
 
         if (!$buyer1 || !$buyer2 || !$seller) {
