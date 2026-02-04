@@ -21,7 +21,7 @@ class OrderController extends Controller
         $user = Auth::user();
 
         $orders = Order::where('buyer_id', $user->id)
-            ->with(['items.product', 'items.seller', 'items.ringCustomization', 'payment', 'buyer'])
+            ->with(['items.product', 'items.seller', 'items.ringCustomization', 'payment', 'payments', 'buyer'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
@@ -35,7 +35,7 @@ class OrderController extends Controller
 
         $order = Order::where('buyer_id', $user->id)
             ->where('id', $id)
-            ->with(['items.product', 'items.seller', 'items.ringCustomization', 'payment', 'buyer'])
+            ->with(['items.product', 'items.seller', 'items.ringCustomization', 'payment', 'payments', 'buyer'])
             ->firstOrFail();
 
         return response()->json($order);
@@ -53,6 +53,7 @@ class OrderController extends Controller
             'shipping_address.country' => 'required|string',
             'cart_item_ids' => 'nullable|array',
             'cart_item_ids.*' => 'integer',
+            'shipping_amount' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -108,10 +109,10 @@ class OrderController extends Controller
             $productTotal = $itemsToProcess->sum(function ($item) {
                 return $item->price_at_time_of_add * $item->quantity;
             });
-            $shippingAmount = 0; // Can be calculated based on logic
-            $taxAmount = 0; // Can be calculated based on logic
+            $shippingAmount = (float) ($request->shipping_amount ?? 0);
+            $taxAmount = 0;
 
-            // Total amount is product total + shipping + tax
+            // Total amount is product total + shipping (platform keeps shipping)
             // Platform fee (8-10%) will be added when payment is created per-seller
             $totalAmount = $productTotal + $shippingAmount + $taxAmount;
 
@@ -211,30 +212,6 @@ class OrderController extends Controller
             DB::rollBack();
             return response()->json(['error' => 'Failed to cancel order'], 500);
         }
-    }
-
-    // Seller: Get all orders for seller's products
-    public function sellerOrders()
-    {
-        $user = Auth::user();
-
-        if (!$user->isSeller()) {
-            return response()->json(['error' => 'Only sellers can access this endpoint'], 403);
-        }
-
-        // Only show orders that have been paid (status is confirmed, accepted, shipped, or delivered)
-        // Exclude 'pending' (unpaid) and 'cancelled' orders
-        $orders = Order::whereHas('items', function ($query) use ($user) {
-            $query->where('seller_id', $user->id);
-        })
-        ->whereIn('status', ['confirmed', 'accepted', 'shipped', 'delivered'])
-        ->with(['items' => function ($query) use ($user) {
-            $query->where('seller_id', $user->id)->with(['product', 'ringCustomization']);
-        }, 'buyer', 'payment'])
-        ->orderBy('created_at', 'desc')
-        ->paginate(20);
-
-        return response()->json($orders);
     }
 
     // Seller: Accept order
