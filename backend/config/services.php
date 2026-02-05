@@ -42,6 +42,7 @@ return [
         'client_id' => env('MERCADOPAGO_CLIENT_ID'),
         'client_secret' => env('MERCADOPAGO_CLIENT_SECRET'),
         'redirect_uri' => env('APP_URL') . '/api/mercadopago/callback',
+        'marketplace_enabled' => env('MERCADOPAGO_MARKETPLACE_ENABLED', true),
     ],
 
     'apponlog' => [

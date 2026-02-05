@@ -60,6 +60,13 @@ class PaymentController extends Controller
             $paymentMethod = $request->payment_method;
             $buyer = $order->buyer;
 
+            Log::info('Processing payment request', [
+                'order_id' => $order->id,
+                'buyer_id' => $buyer->id,
+                'payment_method' => $paymentMethod,
+                'items_count' => $order->items->count(),
+            ]);
+
             // Group items by seller
             $sellerGroups = $order->items->groupBy('seller_id');
 
@@ -125,6 +132,36 @@ class PaymentController extends Controller
                         'status' => 'failed',
                         'gateway_response' => $result['error'],
                     ]);
+
+                    // Return error immediately with details from Mercado Pago
+                    DB::commit();
+                    $mpError = $result['error'];
+                    $errorMessage = 'Payment failed';
+
+                    // Extract meaningful error message from MP response
+                    if (is_array($mpError)) {
+                        if (isset($mpError['message'])) {
+                            $errorMessage = $mpError['message'];
+                        } elseif (isset($mpError['error'])) {
+                            $errorMessage = $mpError['error'];
+                        } elseif (isset($mpError['cause']) && is_array($mpError['cause']) && count($mpError['cause']) > 0) {
+                            $errorMessage = $mpError['cause'][0]['description'] ?? $mpError['cause'][0]['code'] ?? 'Payment processing error';
+                        }
+                    } elseif (is_string($mpError)) {
+                        $errorMessage = $mpError;
+                    }
+
+                    Log::error('Payment failed - returning error to client', [
+                        'seller_id' => $sellerId,
+                        'mp_error' => $mpError,
+                        'error_message' => $errorMessage,
+                    ]);
+
+                    return response()->json([
+                        'error' => $errorMessage,
+                        'mp_error' => config('app.debug') ? $mpError : null,
+                        'seller_name' => $seller->name,
+                    ], 400);
                 }
 
                 $paymentsData[] = [
@@ -167,11 +204,17 @@ class PaymentController extends Controller
             DB::rollBack();
             Log::error('Payment creation failed', [
                 'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
-                'error' => 'Failed to create payment',
-                'message' => config('app.debug') ? $e->getMessage() : null,
+                'error' => config('app.debug') ? $e->getMessage() : 'Failed to create payment',
+                'message' => config('app.debug') ? $e->getMessage() : 'An error occurred while processing your payment',
+                'debug' => config('app.debug') ? [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ] : null,
             ], 500);
         }
     }
@@ -226,7 +269,6 @@ class PaymentController extends Controller
                     'first_name' => explode(' ', $buyer->name)[0],
                     'last_name' => explode(' ', $buyer->name)[1] ?? '',
                 ],
-                'application_fee' => (float) $applicationFee,
                 'statement_descriptor' => 'ALIANCA NOBRE',
                 'notification_url' => config('app.url') . '/api/payments/webhook',
                 'external_reference' => "payment_{$payment->id}",
@@ -234,10 +276,23 @@ class PaymentController extends Controller
                     'payment_id' => $payment->id,
                     'order_id' => $order->id,
                     'seller_id' => $seller->id,
+                    'application_fee' => $applicationFee, // Store fee in metadata for tracking
                 ],
             ];
 
+            // Only include application_fee if marketplace mode is enabled
+            $marketplaceEnabled = config('services.mercadopago.marketplace_enabled', false);
+            if ($marketplaceEnabled && $applicationFee > 0) {
+                $paymentData['application_fee'] = (float) $applicationFee;
+            }
+
+            // Generate idempotency key to prevent duplicate payments
+            $idempotencyKey = 'card_' . $payment->id . '_' . $order->id . '_' . time();
+
             $mpPaymentResponse = Http::withToken($sellerToken)
+                ->withHeaders([
+                    'X-Idempotency-Key' => $idempotencyKey,
+                ])
                 ->post('https://api.mercadopago.com/v1/payments', $paymentData);
 
             if (!$mpPaymentResponse->successful()) {
@@ -306,23 +361,45 @@ class PaymentController extends Controller
                     'first_name' => explode(' ', $buyer->name)[0],
                     'last_name' => explode(' ', $buyer->name)[1] ?? '',
                 ],
-                'application_fee' => (float) $applicationFee,
                 'notification_url' => config('app.url') . '/api/payments/webhook',
                 'external_reference' => "payment_{$payment->id}",
                 'metadata' => [
                     'payment_id' => $payment->id,
                     'order_id' => $order->id,
                     'seller_id' => $seller->id,
+                    'application_fee' => $applicationFee, // Store fee in metadata for tracking
                 ],
             ];
 
+            // Only include application_fee if marketplace mode is enabled
+            // application_fee requires marketplace OAuth setup in Mercado Pago
+            $marketplaceEnabled = config('services.mercadopago.marketplace_enabled', false);
+            if ($marketplaceEnabled && $applicationFee > 0) {
+                $paymentData['application_fee'] = (float) $applicationFee;
+            }
+
+            // Generate idempotency key to prevent duplicate payments
+            $idempotencyKey = 'pix_' . $payment->id . '_' . $order->id . '_' . time();
+
+            Log::info('Sending PIX payment request to MP', [
+                'seller_id' => $seller->id,
+                'payment_data' => $paymentData,
+                'token_prefix' => substr($sellerToken, 0, 20) . '...',
+                'idempotency_key' => $idempotencyKey,
+            ]);
+
             $mpPaymentResponse = Http::withToken($sellerToken)
+                ->withHeaders([
+                    'X-Idempotency-Key' => $idempotencyKey,
+                ])
                 ->post('https://api.mercadopago.com/v1/payments', $paymentData);
 
             if (!$mpPaymentResponse->successful()) {
                 Log::error('PIX payment creation failed', [
                     'seller_id' => $seller->id,
+                    'http_status' => $mpPaymentResponse->status(),
                     'response' => $mpPaymentResponse->json(),
+                    'response_body' => $mpPaymentResponse->body(),
                 ]);
                 return [
                     'success' => false,
