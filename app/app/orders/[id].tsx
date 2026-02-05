@@ -33,7 +33,7 @@ export default function OrderDetailScreen() {
         // Payments may not exist yet
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load order details');
+      Alert.alert('Erro', 'Falha ao carregar detalhes do pedido');
     } finally {
       setLoading(false);
     }
@@ -55,12 +55,12 @@ export default function OrderDetailScreen() {
     if (!authToken || !order) return;
 
     Alert.alert(
-      'Cancel Order',
-      'Are you sure you want to cancel this order?',
+      'Cancelar Pedido',
+      'Tem certeza que deseja cancelar este pedido?',
       [
-        { text: 'No', style: 'cancel' },
+        { text: 'Não', style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: 'Sim, Cancelar',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -68,9 +68,9 @@ export default function OrderDetailScreen() {
               await orderApi.cancelOrder(authToken, order.id);
               await fetchOrders();
               await loadOrder();
-              Alert.alert('Success', 'Order cancelled successfully');
+              Alert.alert('Sucesso', 'Pedido cancelado com sucesso');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel order');
+              Alert.alert('Erro', error.message || 'Falha ao cancelar pedido');
             } finally {
               setCancelling(false);
             }
@@ -93,7 +93,7 @@ export default function OrderDetailScreen() {
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Order not found</Text>
+          <Text style={styles.emptyTitle}>Pedido não encontrado</Text>
         </View>
       </View>
     );
@@ -216,7 +216,7 @@ export default function OrderDetailScreen() {
                 <Text style={styles.itemName} numberOfLines={2}>
                   {item.product?.name || 'Product'}
                 </Text>
-                <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                <Text style={styles.itemQuantity}>Qtd: {item.quantity}</Text>
                 <Text style={styles.itemPrice}>R$ {Number(item.unit_price).toFixed(2)}</Text>
               </View>
               <Text style={styles.itemTotal}>R$ {Number(item.total_price).toFixed(2)}</Text>

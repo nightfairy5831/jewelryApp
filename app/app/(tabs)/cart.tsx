@@ -71,13 +71,13 @@ export default function CartScreen() {
       <View style={styles.container}>
         <View style={styles.emptyContainer}>
           <Ionicons name="cart-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
-          <Text style={styles.emptyText}>Add some products to get started</Text>
+          <Text style={styles.emptyTitle}>Seu carrinho está vazio</Text>
+          <Text style={styles.emptyText}>Adicione alguns produtos para começar</Text>
           <TouchableOpacity
             style={styles.shopButton}
             onPress={() => router.push('/(tabs)')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Text style={styles.shopButtonText}>Começar a Comprar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -86,7 +86,7 @@ export default function CartScreen() {
 
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) {
-      Alert.alert('Invalid Quantity', 'Quantity must be at least 1');
+      Alert.alert('Quantidade Inválida', 'A quantidade deve ser pelo menos 1');
       return;
     }
     await updateCartQuantity(itemId, newQuantity);
@@ -94,12 +94,12 @@ export default function CartScreen() {
 
   const handleRemoveItem = async (itemId: number) => {
     Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this item?',
+      'Remover Item',
+      'Tem certeza que deseja remover este item?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Remover',
           style: 'destructive',
           onPress: async () => await removeFromCart(itemId),
         },

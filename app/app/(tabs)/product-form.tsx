@@ -20,17 +20,17 @@ import { useAppStore } from '../../store/useAppStore';
 import { productApi, sellerApi, uploadApi } from '../../services/api';
 
 // Categories and Subcategories
-const CATEGORIES = ['Male', 'Female', 'Wedding Rings', 'Other'];
+const CATEGORIES = ['Masculino', 'Feminino', 'Alianças', 'Outros'];
 
 const SUBCATEGORIES: { [key: string]: string[] } = {
-  'Male': ['Chains', 'Rings', 'Earrings and Pendants'],
-  'Female': ['Chains', 'Rings', 'Earrings and Pendants'],
-  'Wedding Rings': ['Wedding Anniversary', 'Engagement', 'Marriage'],
-  'Other': ['Perfumes', 'Watches', 'Other'],
+  'Masculino': ['Correntes', 'Anéis', 'Brincos e Pingentes'],
+  'Feminino': ['Correntes', 'Anéis', 'Brincos e Pingentes'],
+  'Alianças': ['Bodas', 'Noivado', 'Casamento'],
+  'Outros': ['Perfumes', 'Relógios', 'Outros'],
 };
 
-const FILLING_OPTIONS = ['Solid', 'Hollow', 'Defense'];
-const GEMSTONE_OPTIONS = ['Synthetic', 'Natural', 'Without Stones'];
+const FILLING_OPTIONS = ['Maciço', 'Oco', 'Defesa'];
+const GEMSTONE_OPTIONS = ['Sintética', 'Natural', 'Sem Pedras'];
 const MATERIAL_OPTIONS = [
   { label: 'Ouro 18K', value: 'Ouro 18K', karat: '18k' },
   { label: 'Ouro 10K', value: 'Ouro 10K', karat: '10k' },
@@ -47,8 +47,8 @@ export default function ProductFormScreen() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'Male',
-    subcategory: 'Chains',
+    category: 'Masculino',
+    subcategory: 'Correntes',
     filling: '',
     is_gemstone: '',
     material: 'Ouro 18K',
@@ -91,8 +91,8 @@ export default function ProductFormScreen() {
         setFormData({
           name: product.name || '',
           description: product.description || '',
-          category: product.category || 'Male',
-          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0],
+          category: product.category || 'Masculino',
+          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Masculino'][0],
           filling: product.filling || '',
           is_gemstone: product.is_gemstone || '',
           material: product.material || 'Ouro 18K',
