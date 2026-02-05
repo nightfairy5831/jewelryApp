@@ -112,7 +112,7 @@ export default function CheckoutScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#111827" />
           </TouchableOpacity>
-          <Text style={styles.header}>Checkout</Text>
+          <Text style={styles.header}>Finalizar Compra</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
@@ -204,7 +204,7 @@ export default function CheckoutScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.header}>Checkout</Text>
+        <Text style={styles.header}>Finalizar Compra</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -224,37 +224,37 @@ export default function CheckoutScreen() {
         {/* Shipping Address */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Shipping Address</Text>
+            <Text style={styles.sectionTitle}>Endereço de Entrega</Text>
             <TouchableOpacity
               style={styles.mockDataButton}
               onPress={fillMockData}
             >
               <Ionicons name="flash" size={16} color="#3b82f6" />
-              <Text style={styles.mockDataButtonText}>Mock Data</Text>
+              <Text style={styles.mockDataButtonText}>Dados de Teste</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Street Address"
+              placeholder="Endereço"
               value={address.street}
               onChangeText={(text) => setAddress({ ...address, street: text })}
             />
             <TextInput
               style={styles.input}
-              placeholder="City"
+              placeholder="Cidade"
               value={address.city}
               onChangeText={(text) => setAddress({ ...address, city: text })}
             />
             <TextInput
               style={styles.input}
-              placeholder="State"
+              placeholder="Estado"
               value={address.state}
               onChangeText={(text) => setAddress({ ...address, state: text })}
             />
             <TextInput
               style={styles.input}
-              placeholder="Postal Code"
+              placeholder="CEP"
               value={address.postal_code}
               onChangeText={handlePostalCodeChange}
               keyboardType="numeric"
@@ -331,7 +331,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <Text style={styles.placeOrderButtonText}>Place Order</Text>
+              <Text style={styles.placeOrderButtonText}>Finalizar Pedido</Text>
               <Ionicons name="checkmark-circle" size={24} color="#fff" />
             </>
           )}

@@ -97,7 +97,7 @@ export default function ReviewsPage() {
     <>
       <Stack.Screen
         options={{
-          title: 'Reviews',
+          title: 'Avaliações',
           headerShown: true,
           headerStyle: {
             backgroundColor: '#fff',

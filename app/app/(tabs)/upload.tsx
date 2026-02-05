@@ -20,7 +20,7 @@ export default function UploadScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant permission to access media library');
+        Alert.alert('Permissão Necessária', 'Por favor, conceda permissão para acessar a galeria de mídia');
         return;
       }
 
@@ -35,7 +35,7 @@ export default function UploadScreen() {
         setImages([...images, ...uris]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to pick images');
+      Alert.alert('Erro', error.message || 'Falha ao selecionar imagens');
     }
   };
 
@@ -43,7 +43,7 @@ export default function UploadScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant permission to access media library');
+        Alert.alert('Permissão Necessária', 'Por favor, conceda permissão para acessar a galeria de mídia');
         return;
       }
 
@@ -58,7 +58,7 @@ export default function UploadScreen() {
         setVideos([...videos, ...uris]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to pick videos');
+      Alert.alert('Erro', error.message || 'Falha ao selecionar vídeos');
     }
   };
 
@@ -66,7 +66,7 @@ export default function UploadScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant permission to access media library');
+        Alert.alert('Permissão Necessária', 'Por favor, conceda permissão para acessar a galeria de mídia');
         return;
       }
 
@@ -86,25 +86,25 @@ export default function UploadScreen() {
           .map(asset => asset.uri);
 
         if (modelUris.length === 0) {
-          Alert.alert('No 3D Models', 'Please select GLB, GLTF, or OBJ files');
+          Alert.alert('Nenhum Modelo 3D', 'Por favor, selecione arquivos GLB, GLTF ou OBJ');
           return;
         }
 
         setModels([...models, ...modelUris]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to pick 3D models');
+      Alert.alert('Erro', error.message || 'Falha ao selecionar modelos 3D');
     }
   };
 
   const uploadFiles = async () => {
     if (!authToken || !isAuthenticated) {
-      Alert.alert('Authentication Required', 'Please login to upload files');
+      Alert.alert('Autenticação Necessária', 'Por favor, faça login para enviar arquivos');
       return;
     }
 
     if (images.length === 0 && videos.length === 0 && models.length === 0) {
-      Alert.alert('No Files', 'Please select at least one file to upload');
+      Alert.alert('Nenhum Arquivo', 'Por favor, selecione pelo menos um arquivo para enviar');
       return;
     }
 
@@ -132,8 +132,8 @@ export default function UploadScreen() {
 
       setUploadedUrls(uploaded);
       Alert.alert(
-        'Upload Complete',
-        `Successfully uploaded ${uploaded.length} files to Cloudflare R2`,
+        'Upload Concluído',
+        `${uploaded.length} arquivos enviados com sucesso para Cloudflare R2`,
         [
           {
             text: 'OK',
@@ -146,7 +146,7 @@ export default function UploadScreen() {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Upload Failed', error.message || 'Failed to upload files');
+      Alert.alert('Falha no Upload', error.message || 'Falha ao enviar arquivos');
     } finally {
       setUploading(false);
     }

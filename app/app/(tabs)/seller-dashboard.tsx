@@ -129,7 +129,7 @@ export default function SellerDashboardScreen() {
         return;
       }
 
-      setError(err.message || 'Failed to load dashboard');
+      setError(err.message || 'Falha ao carregar o painel');
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,7 @@ export default function SellerDashboardScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.emptyContainer}>
           <Ionicons name="log-in-outline" size={64} color="#d1d5db" />
-          <Text style={styles.emptyText}>Please login to access seller dashboard</Text>
+          <Text style={styles.emptyText}>Faça login para acessar o painel do vendedor</Text>
         </View>
       </SafeAreaView>
     );
@@ -207,9 +207,9 @@ export default function SellerDashboardScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.emptyContainer}>
           <Ionicons name="lock-closed-outline" size={64} color="#d1d5db" />
-          <Text style={styles.emptyText}>Seller access required</Text>
+          <Text style={styles.emptyText}>Acesso de vendedor necessário</Text>
           <Text style={styles.emptySubtext}>
-            Request seller role from your profile settings
+            Solicite o papel de vendedor nas configurações do seu perfil
           </Text>
         </View>
       </SafeAreaView>
@@ -221,7 +221,7 @@ export default function SellerDashboardScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>Loading dashboard...</Text>
+          <Text style={styles.loadingText}>Carregando painel...</Text>
         </View>
       </SafeAreaView>
     );
@@ -234,7 +234,7 @@ export default function SellerDashboardScreen() {
           <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchDashboard}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+            <Text style={styles.retryButtonText}>Tentar Novamente</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

@@ -8,15 +8,15 @@ const mockNotificações = [
     type: 'like',
     userName: 'Maria Silva',
     message: 'curtiu sua avaliação',
-    timeAgo: '2h ago',
+    timeAgo: '2h atrás',
     read: false,
   },
   {
     id: '2',
     type: 'follow',
     userName: 'João Costa',
-    message: 'started following you',
-    timeAgo: '5h ago',
+    message: 'começou a seguir você',
+    timeAgo: '5h atrás',
     read: false,
   },
   {
@@ -24,7 +24,7 @@ const mockNotificações = [
     type: 'comment',
     userName: 'Ana Santos',
     message: 'comentou no seu post',
-    timeAgo: '1d ago',
+    timeAgo: '1d atrás',
     read: true,
   },
 ];
@@ -99,9 +99,9 @@ export default function NotificaçõesScreen() {
         {mockNotificações.length === 0 && (
           <View style={styles.emptyState}>
             <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyStateTitle}>No Notificações</Text>
+            <Text style={styles.emptyStateTitle}>Sem Notificações</Text>
             <Text style={styles.emptyStateText}>
-              You're all caught up! Check back later for new updates.
+              Você está em dia! Volte mais tarde para novas atualizações.
             </Text>
           </View>
         )}
