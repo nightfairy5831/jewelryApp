@@ -22,7 +22,7 @@ export interface RingCustomization {
 
 export default function ProductDetailContent({ product, compact = false, onCustomizationChange }: ProductDetailContentProps) {
   const [customization, setCustomization] = useState<RingCustomization>({});
-  const [productRating, setProductRating] = useState(0);
+  const [productRating, setProductRating] = useState(5);
   const [reviewCount, setReviewCount] = useState(0);
   const [showRingSizeGuide, setShowRingSizeGuide] = useState(false);
 
@@ -36,7 +36,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
       try {
         const response = await fetch(`${API_CONFIG.BASE_URL}/products/${product.id}/reviews`);
         const data = await response.json();
-        setProductRating(data.average_rating || 0);
+        setProductRating(data.average_rating || 5);
         setReviewCount(data.total_reviews || 0);
       } catch (error) {
         console.error('Failed to fetch product rating:', error);

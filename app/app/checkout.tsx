@@ -88,32 +88,13 @@ export default function CheckoutScreen() {
     };
   }, []);
 
-  const fillMockData = () => {
-    const mockAddress = {
-      street: 'Rua das Flores, 123',
-      city: 'São Paulo',
-      state: 'SP',
-      postal_code: '01310-100',
-      country: 'Brazil',
-    };
-    setAddress(mockAddress);
-    fetchShippingEstimate(mockAddress.postal_code);
-  };
-
   // Require authentication for checkout
   const isAuthenticated = !!authToken;
   if (!isAuthenticated || !authToken) {
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
-          </TouchableOpacity>
           <Text style={styles.header}>Finalizar Compra</Text>
-          <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="lock-closed-outline" size={80} color="#3b82f6" />
@@ -196,16 +177,8 @@ export default function CheckoutScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with Back Button */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#111827" />
-        </TouchableOpacity>
         <Text style={styles.header}>Finalizar Compra</Text>
-        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -223,16 +196,7 @@ export default function CheckoutScreen() {
 
         {/* Shipping Address */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Endereço de Entrega</Text>
-            <TouchableOpacity
-              style={styles.mockDataButton}
-              onPress={fillMockData}
-            >
-              <Ionicons name="flash" size={16} color="#3b82f6" />
-              <Text style={styles.mockDataButtonText}>Dados de Teste</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>Endereço de Entrega</Text>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -359,14 +323,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   scrollView: {
     flex: 1,
   },
@@ -380,30 +336,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 16,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-  },
-  mockDataButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#eff6ff',
-    borderRadius: 6,
-    gap: 4,
-  },
-  mockDataButtonText: {
-    fontSize: 14,
-    color: '#3b82f6',
-    fontWeight: '600',
   },
   summaryCard: {
     flexDirection: 'row',

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '../../store/useAppStore';
 import { useEffect, useState, useMemo } from 'react';
 import { router } from 'expo-router';
+import { API_CONFIG } from '../../config/api';
 
 export default function CartScreen() {
   const {
@@ -14,10 +15,26 @@ export default function CartScreen() {
   } = useAppStore();
 
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [productRatings, setProductRatings] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetchCart();
   }, []);
+
+  // Fetch ratings for all products in cart
+  useEffect(() => {
+    if (!cart?.cart?.items) return;
+    const productIds = [...new Set(cart.cart.items.map(item => item.product_id))];
+    productIds.forEach(async (productId) => {
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/products/${productId}/reviews`);
+        const data = await response.json();
+        setProductRatings(prev => ({ ...prev, [productId]: data.average_rating || 5 }));
+      } catch {
+        setProductRatings(prev => ({ ...prev, [productId]: 5 }));
+      }
+    });
+  }, [cart?.cart?.items?.length]);
 
   // Initialize all items as selected when cart loads
   useEffect(() => {
@@ -166,7 +183,7 @@ export default function CartScreen() {
                     </Text>
                     <View style={styles.ratingContainer}>
                       <Ionicons name="star" size={16} color="#D4AF37" />
-                      <Text style={styles.ratingText}>4.5</Text>
+                      <Text style={styles.ratingText}>{(productRatings[item.product_id] ?? 5).toFixed(1)}</Text>
                     </View>
                   </View>
                   <Text style={styles.totalPrice}>
