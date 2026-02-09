@@ -31,10 +31,10 @@ class ReviewController extends Controller
                 ];
             });
 
-        // Calculate average rating
+        // Calculate average rating (default 5 when no reviews)
         $averageRating = $reviews->count() > 0
             ? round($reviews->avg('rating'), 1)
-            : 0;
+            : 5;
 
         return response()->json([
             'reviews' => $reviews,
