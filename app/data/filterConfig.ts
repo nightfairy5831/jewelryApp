@@ -27,7 +27,7 @@ export const filterTree: Record<string, FilterConfig[]> = {
     },
     {
       id: 'Wedding Rings',
-      name: 'Alianças de Casamento',
+      name: 'Alianças',
       icon: require('../assets/filter/marriage.png'),
       iconType: 'image',
       type: 'category',
@@ -60,13 +60,13 @@ export const filterTree: Record<string, FilterConfig[]> = {
     { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/filter/mearring.png'), iconType: 'image', type: 'category' }
   ],
   Female: [
-    { id: 'Chains', name: 'Correntes', icon: require('../assets/filter/fchain.png'), iconType: 'image', type: 'category' },
+    { id: 'Chains', name: 'Correntes e Pulseiras', icon: require('../assets/filter/fchain.png'), iconType: 'image', type: 'category' },
     { id: 'Rings', name: 'Anéis', icon: require('../assets/filter/fring.png'), iconType: 'image', type: 'category' },
     { id: 'Earrings and Pendants', name: 'Brincos e Pingentes', icon: require('../assets/filter/fearring.png'), iconType: 'image', type: 'category' }
   ],
   'Wedding Rings': [
-    { id: 'Wedding Anniversary', name: 'Aniversário de Casamento', icon: require('../assets/filter/anniversary.png'), iconType: 'image', type: 'category' },
-    { id: 'Engagement', name: 'Noivado', icon: require('../assets/filter/engagment.png'), iconType: 'image', type: 'category' },
+    { id: 'Wedding Anniversary', name: 'Compromisso', icon: require('../assets/filter/anniversary.png'), iconType: 'image', type: 'category' },
+    { id: 'Engagement', name: 'Bodas', icon: require('../assets/filter/engagment.png'), iconType: 'image', type: 'category' },
     { id: 'Marriage', name: 'Casamento', icon: require('../assets/filter/marriages.png'), iconType: 'image', type: 'category' }
   ],
   Other: [
