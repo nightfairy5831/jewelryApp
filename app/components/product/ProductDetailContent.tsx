@@ -203,7 +203,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
             />
             <TextInput
               style={styles.input}
-              placeholder="Nome para gravação (Ex: João)"
+              placeholder="Nome para gravação (Ex: Maria)"
               value={customization.name_1 || ''}
               onChangeText={(value) => updateCustomization('name_1', value)}
             />
@@ -220,7 +220,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
             />
             <TextInput
               style={styles.input}
-              placeholder="Nome para gravação (Ex: Maria)"
+              placeholder="Nome para gravação (Ex: João)"
               value={customization.name_2 || ''}
               onChangeText={(value) => updateCustomization('name_2', value)}
             />

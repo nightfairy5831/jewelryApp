@@ -34,13 +34,13 @@ const SUBCATEGORIES: { [key: string]: { label: string; value: string }[] } = {
     { label: 'Brincos e Pingentes', value: 'Earrings and Pendants' },
   ],
   'Female': [
-    { label: 'Correntes', value: 'Chains' },
+    { label: 'Correntes e Pulseiras', value: 'Chains' },
     { label: 'Anéis', value: 'Rings' },
     { label: 'Brincos e Pingentes', value: 'Earrings and Pendants' },
   ],
   'Wedding Rings': [
-    { label: 'Bodas', value: 'Wedding Anniversary' },
-    { label: 'Noivado', value: 'Engagement' },
+    { label: 'Compromisso', value: 'Wedding Anniversary' },
+    { label: 'Bodas', value: 'Engagement' },
     { label: 'Casamento', value: 'Marriage' },
   ],
   'Other': [
