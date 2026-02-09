@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi } from '../../services/api';
@@ -43,11 +44,14 @@ export default function SellerProductsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  useEffect(() => {
-    if (authToken) {
-      fetchProducts();
-    }
-  }, [authToken, filterStatus]);
+  // Reload products every time this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (authToken) {
+        fetchProducts();
+      }
+    }, [authToken, filterStatus])
+  );
 
   const fetchProducts = async () => {
     if (!authToken) return;

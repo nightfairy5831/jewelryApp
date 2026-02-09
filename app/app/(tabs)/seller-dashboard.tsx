@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { sellerApi, messageApi, refundApi, type SellerDashboard } from '../../services/api';
@@ -66,16 +67,19 @@ export default function SellerDashboardScreen() {
     }
   }, [authToken]);
 
-  useEffect(() => {
-    if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
-      fetchDashboard();
-      fetchMpStatus();
-      fetchMessageCount();
-      fetchRefundCount();
-    } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
-      setLoading(false);
-    }
-  }, [isAuthenticated, authToken, currentUser]);
+  // Reload dashboard data every time this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && currentUser?.role === 'seller' && authToken) {
+        fetchDashboard();
+        fetchMpStatus();
+        fetchMessageCount();
+        fetchRefundCount();
+      } else if (!isAuthenticated || (currentUser && currentUser.role !== 'seller')) {
+        setLoading(false);
+      }
+    }, [isAuthenticated, authToken, currentUser])
+  );
 
   // Poll for MP connection status after OAuth
   useEffect(() => {

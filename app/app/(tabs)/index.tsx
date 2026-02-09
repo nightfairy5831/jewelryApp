@@ -4,8 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import { useAppStore } from '../../store/useAppStore';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import ProductDetailContent from '../../components/product/ProductDetailContent';
 import Model3DViewer from '../../components/product/Model3DViewer';
 
@@ -40,10 +41,12 @@ export default function CatalogScreen() {
   const [addingToCart, setAddingToCart] = useState(false);
   const videoRef = useRef<Video>(null);
 
-  // Load products from API on mount
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  // Reload products every time this tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadProducts();
+    }, [])
+  );
 
   // Reset button state when switching to detail mode or changing product
   useEffect(() => {

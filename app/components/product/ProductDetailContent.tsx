@@ -235,7 +235,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
         {/* Questions Section - Navigate to Forum */}
         <TouchableOpacity
           style={styles.expandableHeader}
-          onPress={() => router.push(`/(tabs)/forum?sellerId=${product.seller?.id}&sellerName=${encodeURIComponent(product.seller?.name || 'Vendedor')}`)}
+          onPress={() => router.push({ pathname: '/(tabs)/forum', params: { sellerId: String(product.seller?.id || ''), sellerName: product.seller?.name || 'Vendedor' } })}
         >
           <Text style={styles.expandableTitle}>Perguntas ao vendedor</Text>
           <Ionicons
@@ -250,7 +250,7 @@ export default function ProductDetailContent({ product, compact = false, onCusto
         {/* Reviews Section - Navigate to Reviews Page */}
         <TouchableOpacity
           style={styles.expandableHeader}
-          onPress={() => router.push(`/reviews/${product.id}?productName=${encodeURIComponent(product.name)}`)}
+          onPress={() => router.push({ pathname: '/reviews/[productId]', params: { productId: product.id, productName: product.name } })}
         >
           <Text style={styles.expandableTitle}>Avaliações</Text>
           <Ionicons
