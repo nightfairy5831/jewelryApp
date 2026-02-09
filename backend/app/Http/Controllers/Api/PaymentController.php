@@ -86,13 +86,25 @@ class PaymentController extends Controller
 
             DB::beginTransaction();
 
+            // Distribute shipping cost proportionally across sellers
+            $totalProductAmount = $order->items->sum('total_price');
+            $shippingAmount = (float) ($order->shipping_amount ?? 0);
+
             foreach ($sellerGroups as $sellerId => $items) {
                 $seller = User::find($sellerId);
-                $sellerAmount = $items->sum('total_price');
+                $sellerProductAmount = $items->sum('total_price');
 
-                // Calculate application fee: PIX 8%, Credit Card 10%
+                // Proportional shipping share for this seller's items
+                $sellerShippingShare = $totalProductAmount > 0
+                    ? round($shippingAmount * ($sellerProductAmount / $totalProductAmount), 2)
+                    : 0;
+
+                // Total charge = products + shipping share
+                $sellerAmount = $sellerProductAmount + $sellerShippingShare;
+
+                // Application fee = platform commission + shipping (platform keeps shipping)
                 $feeRate = $paymentMethod === 'pix' ? 0.08 : 0.10;
-                $applicationFee = round($sellerAmount * $feeRate, 2);
+                $applicationFee = round($sellerProductAmount * $feeRate, 2) + $sellerShippingShare;
 
                 // Create payment record for this seller
                 $payment = Payment::create([
