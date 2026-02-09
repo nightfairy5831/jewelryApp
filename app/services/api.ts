@@ -282,16 +282,15 @@ function transformProduct(apiProduct: any): Product {
     thumbnail: images[0] || '',
     category: apiProduct.category || 'Uncategorized',
     subcategory: apiProduct.subcategory,
-    rating: 4.5, // TODO: Add rating system to backend
-    reviewCount: 0, // TODO: Add reviews to backend
+    rating: 5,
+    reviewCount: 0,
     featured: apiProduct.status === 'approved' && apiProduct.is_active,
     shipping: {
       free: true, // Default for now
       days: 5,
     },
-    // 3D Model support (Phase 4) - Temporary fallback for all products
-    model_3d_url: apiProduct.model_3d_url || 'https://jewelry-backend-main-wj7bry.laravel.cloud/jewelry.glb',
-    model_3d_type: apiProduct.model_3d_type || 'glb',
+    model_3d_url: apiProduct.model_3d_url || undefined,
+    model_3d_type: apiProduct.model_3d_type || undefined,
     videos: videos,
     // Seller info
     seller: apiProduct.seller ? {

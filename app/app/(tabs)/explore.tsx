@@ -8,11 +8,10 @@ const { width } = Dimensions.get('window');
 const PRODUCT_WIDTH = (width - 48) / 2;
 
 const categories = [
-  { id: 'fashion', name: 'Moda', icon: 'shirt-outline', color: '#f59e0b' },
-  { id: 'beauty', name: 'Beleza', icon: 'sparkles-outline', color: '#ec4899' },
-  { id: 'sports', name: 'Esporte', icon: 'fitness-outline', color: '#3b82f6' },
-  { id: 'tech', name: 'Tech', icon: 'phone-portrait-outline', color: '#8b5cf6' },
-  { id: 'home', name: 'Casa', icon: 'home-outline', color: '#10b981' },
+  { id: 'Male', name: 'Masculino', icon: 'man-outline', color: '#3b82f6' },
+  { id: 'Female', name: 'Feminino', icon: 'woman-outline', color: '#ec4899' },
+  { id: 'Wedding Rings', name: 'Alianças', icon: 'heart-outline', color: '#f59e0b' },
+  { id: 'Other', name: 'Outros', icon: 'grid-outline', color: '#8b5cf6' },
 ];
 
 export default function ExplorarScreen() {

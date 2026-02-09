@@ -19,18 +19,54 @@ import DocumentPicker from 'react-native-document-picker';
 import { useAppStore } from '../../store/useAppStore';
 import { productApi, sellerApi, uploadApi } from '../../services/api';
 
-// Categories and Subcategories
-const CATEGORIES = ['Masculino', 'Feminino', 'Alianças', 'Outros'];
+// Categories and Subcategories (value = English for API, label = Portuguese for display)
+const CATEGORIES = [
+  { label: 'Masculino', value: 'Male' },
+  { label: 'Feminino', value: 'Female' },
+  { label: 'Alianças', value: 'Wedding Rings' },
+  { label: 'Outros', value: 'Other' },
+];
 
-const SUBCATEGORIES: { [key: string]: string[] } = {
-  'Masculino': ['Correntes', 'Anéis', 'Brincos e Pingentes'],
-  'Feminino': ['Correntes', 'Anéis', 'Brincos e Pingentes'],
-  'Alianças': ['Bodas', 'Noivado', 'Casamento'],
-  'Outros': ['Perfumes', 'Relógios', 'Outros'],
+const SUBCATEGORIES: { [key: string]: { label: string; value: string }[] } = {
+  'Male': [
+    { label: 'Correntes', value: 'Chains' },
+    { label: 'Anéis', value: 'Rings' },
+    { label: 'Brincos e Pingentes', value: 'Earrings and Pendants' },
+  ],
+  'Female': [
+    { label: 'Correntes', value: 'Chains' },
+    { label: 'Anéis', value: 'Rings' },
+    { label: 'Brincos e Pingentes', value: 'Earrings and Pendants' },
+  ],
+  'Wedding Rings': [
+    { label: 'Bodas', value: 'Wedding Anniversary' },
+    { label: 'Noivado', value: 'Engagement' },
+    { label: 'Casamento', value: 'Marriage' },
+  ],
+  'Other': [
+    { label: 'Perfumes', value: 'Perfumes' },
+    { label: 'Relógios', value: 'Watches' },
+    { label: 'Outros', value: 'Other' },
+  ],
 };
 
-const FILLING_OPTIONS = ['Maciço', 'Oco', 'Defesa'];
-const GEMSTONE_OPTIONS = ['Sintética', 'Natural', 'Sem Pedras'];
+const FILLING_OPTIONS = [
+  { label: 'Maciço', value: 'Solid' },
+  { label: 'Oco', value: 'Hollow' },
+  { label: 'Defesa', value: 'Defense' },
+];
+const GEMSTONE_OPTIONS = [
+  { label: 'Sintética', value: 'Synthetic' },
+  { label: 'Natural', value: 'Natural' },
+  { label: 'Sem Pedras', value: 'Without Stones' },
+];
+
+// Helper to get display label from value
+const getCategoryLabel = (value: string) => CATEGORIES.find(c => c.value === value)?.label || value;
+const getSubcategoryLabel = (catValue: string, subValue: string) =>
+  SUBCATEGORIES[catValue]?.find(s => s.value === subValue)?.label || subValue;
+const getFillingLabel = (value: string) => FILLING_OPTIONS.find(o => o.value === value)?.label || value;
+const getGemstoneLabel = (value: string) => GEMSTONE_OPTIONS.find(o => o.value === value)?.label || value;
 const MATERIAL_OPTIONS = [
   { label: 'Ouro 18K', value: 'Ouro 18K', karat: '18k' },
   { label: 'Ouro 10K', value: 'Ouro 10K', karat: '10k' },
@@ -47,8 +83,8 @@ export default function ProductFormScreen() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category: 'Masculino',
-    subcategory: 'Correntes',
+    category: 'Male',
+    subcategory: 'Chains',
     filling: '',
     is_gemstone: '',
     material: 'Ouro 18K',
@@ -91,8 +127,8 @@ export default function ProductFormScreen() {
         setFormData({
           name: product.name || '',
           description: product.description || '',
-          category: product.category || 'Masculino',
-          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Masculino'][0],
+          category: product.category || 'Male',
+          subcategory: product.subcategory || SUBCATEGORIES[product.category || 'Male'][0].value,
           filling: product.filling || '',
           is_gemstone: product.is_gemstone || '',
           material: product.material || 'Ouro 18K',
@@ -433,7 +469,7 @@ export default function ProductFormScreen() {
               onPress={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
               disabled={loading}
             >
-              <Text style={styles.selectText}>{formData.category}</Text>
+              <Text style={styles.selectText}>{getCategoryLabel(formData.category)}</Text>
               <Ionicons
                 name={categoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
                 size={20}
@@ -444,16 +480,16 @@ export default function ProductFormScreen() {
               <View style={styles.dropdownList}>
                 {CATEGORIES.map((cat) => (
                   <TouchableOpacity
-                    key={cat}
+                    key={cat.value}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      handleInputChange('category', cat);
-                      handleInputChange('subcategory', SUBCATEGORIES[cat][0]);
+                      handleInputChange('category', cat.value);
+                      handleInputChange('subcategory', SUBCATEGORIES[cat.value][0].value);
                       setCategoryDropdownOpen(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>{cat}</Text>
-                    {formData.category === cat && (
+                    <Text style={styles.dropdownItemText}>{cat.label}</Text>
+                    {formData.category === cat.value && (
                       <Ionicons name="checkmark" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
@@ -472,7 +508,7 @@ export default function ProductFormScreen() {
               onPress={() => setSubcategoryDropdownOpen(!subcategoryDropdownOpen)}
               disabled={loading}
             >
-              <Text style={styles.selectText}>{formData.subcategory}</Text>
+              <Text style={styles.selectText}>{getSubcategoryLabel(formData.category, formData.subcategory)}</Text>
               <Ionicons
                 name={subcategoryDropdownOpen ? 'chevron-up' : 'chevron-down'}
                 size={20}
@@ -483,15 +519,15 @@ export default function ProductFormScreen() {
               <View style={styles.dropdownList}>
                 {SUBCATEGORIES[formData.category]?.map((subcat) => (
                   <TouchableOpacity
-                    key={subcat}
+                    key={subcat.value}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      handleInputChange('subcategory', subcat);
+                      handleInputChange('subcategory', subcat.value);
                       setSubcategoryDropdownOpen(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>{subcat}</Text>
-                    {formData.subcategory === subcat && (
+                    <Text style={styles.dropdownItemText}>{subcat.label}</Text>
+                    {formData.subcategory === subcat.value && (
                       <Ionicons name="checkmark" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
@@ -511,7 +547,7 @@ export default function ProductFormScreen() {
               disabled={loading}
             >
               <Text style={[styles.selectText, !formData.filling && styles.placeholderText]}>
-                {formData.filling || 'Selecione...'}
+                {formData.filling ? getFillingLabel(formData.filling) : 'Selecione...'}
               </Text>
               <Ionicons
                 name={fillingDropdownOpen ? 'chevron-up' : 'chevron-down'}
@@ -535,15 +571,15 @@ export default function ProductFormScreen() {
                 </TouchableOpacity>
                 {FILLING_OPTIONS.map((option) => (
                   <TouchableOpacity
-                    key={option}
+                    key={option.value}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      handleInputChange('filling', option);
+                      handleInputChange('filling', option.value);
                       setFillingDropdownOpen(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>{option}</Text>
-                    {formData.filling === option && (
+                    <Text style={styles.dropdownItemText}>{option.label}</Text>
+                    {formData.filling === option.value && (
                       <Ionicons name="checkmark" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
@@ -563,7 +599,7 @@ export default function ProductFormScreen() {
               disabled={loading}
             >
               <Text style={[styles.selectText, !formData.is_gemstone && styles.placeholderText]}>
-                {formData.is_gemstone || 'Selecione...'}
+                {formData.is_gemstone ? getGemstoneLabel(formData.is_gemstone) : 'Selecione...'}
               </Text>
               <Ionicons
                 name={gemstoneDropdownOpen ? 'chevron-up' : 'chevron-down'}
@@ -587,15 +623,15 @@ export default function ProductFormScreen() {
                 </TouchableOpacity>
                 {GEMSTONE_OPTIONS.map((option) => (
                   <TouchableOpacity
-                    key={option}
+                    key={option.value}
                     style={styles.dropdownItem}
                     onPress={() => {
-                      handleInputChange('is_gemstone', option);
+                      handleInputChange('is_gemstone', option.value);
                       setGemstoneDropdownOpen(false);
                     }}
                   >
-                    <Text style={styles.dropdownItemText}>{option}</Text>
-                    {formData.is_gemstone === option && (
+                    <Text style={styles.dropdownItemText}>{option.label}</Text>
+                    {formData.is_gemstone === option.value && (
                       <Ionicons name="checkmark" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>

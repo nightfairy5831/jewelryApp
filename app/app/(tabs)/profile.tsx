@@ -150,6 +150,29 @@ export default function PerfilScreen() {
     );
   };
 
+  const handleCompletePayment = (order: Order) => {
+    router.push(`/payment/${order.id}`);
+  };
+
+  const handleCancelOrder = (order: Order) => {
+    Alert.alert(
+      'Cancelar pedido',
+      'Tem certeza que deseja cancelar este pedido?',
+      [
+        { text: 'Não', style: 'cancel' },
+        { text: 'Sim, cancelar', style: 'destructive', onPress: async () => {
+          try {
+            const { orderApi } = require('../../services/api');
+            await orderApi.cancelOrder(authToken!, order.id);
+            fetchOrders();
+          } catch (error: any) {
+            Alert.alert('Erro', error.message || 'Falha ao cancelar pedido');
+          }
+        }},
+      ]
+    );
+  };
+
   const renderComprasTab = () => {
     if (loading) {
       return (
@@ -177,6 +200,8 @@ export default function PerfilScreen() {
             viewType="buyer"
             onViewReason={handleViewReason}
             onConfirmDelivery={handleConfirmDelivery}
+            onCompletePayment={handleCompletePayment}
+            onCancelOrder={handleCancelOrder}
           />
         ))}
       </View>
